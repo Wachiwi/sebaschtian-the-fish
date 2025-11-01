@@ -9,11 +9,11 @@ import (
 
 	porcupine "github.com/Picovoice/porcupine/binding/go/v3"
 	"github.com/spf13/cobra"
+	rpio "github.com/warthog618/gpio"
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	api_client "github.com/GoBig87/chat-gpt-raspberry-pi-assistant/pkg/api/client"
 	v1 "github.com/GoBig87/chat-gpt-raspberry-pi-assistant/pkg/api/v1"
-	gpio_motor "github.com/GoBig87/chat-gpt-raspberry-pi-assistant/pkg/gpio-motor"
 	ww "github.com/GoBig87/chat-gpt-raspberry-pi-assistant/pkg/wake-word"
 )
 
@@ -71,29 +71,41 @@ func detectWakeWord(ctx context.Context) (porcupine.BuiltInKeyword, error) {
 }
 
 func process(ctx context.Context) error {
-	gpioMotor, err := gpio_motor.MakeNewGpioMotor(
-		29, // motorMouthEna,
-		33, // motorMouthIn2,
-		31, // motorMouthIn1,
+	err := rpio.Open()
+	defer rpio.Close()
 
-		35, // motorBodyIn3,
-		32, // motorBodyEnb,
-		37, // motorBodyIn4,
-
-		36, // audioDetect
-	)
 	if err != nil {
 		return err
 	}
 	log.Printf("Open")
-	err = gpioMotor.OpenMouth()
+
+	enableHeadPin := rpio.NewPin(29)
+	in3Pin := rpio.NewPin(31)
+	in4Pin := rpio.NewPin(33)
+
+	enableHeadPin.Output()
+	in3Pin.Output()
+	in4Pin.Output()
+
+	// Enable the motor
+	enableHeadPin.High()
+	in3Pin.High()
+	in4Pin.Low()
 	if err != nil {
 		return err
 	}
 
 	time.Sleep(1 * time.Second)
 	log.Printf("Close")
-	err = gpioMotor.CloseMouth()
+
+	enableHeadPin.Output()
+	in3Pin.Output()
+	in4Pin.Output()
+
+	enableHeadPin.Low()
+	in3Pin.Low()
+	in4Pin.Low()
+
 	if err != nil {
 		return err
 	}
