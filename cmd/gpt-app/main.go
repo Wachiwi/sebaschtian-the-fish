@@ -72,13 +72,13 @@ func detectWakeWord(ctx context.Context) (porcupine.BuiltInKeyword, error) {
 
 func process(ctx context.Context) error {
 	gpioMotor, err := gpio_motor.MakeNewGpioMotor(
-		32, // motorMouthEna,
-		35, // motorMouthIn1,
-		37, // motorMouthIn2,
+		29, // motorMouthEna,
+		31, // motorMouthIn1,
+		33, // motorMouthIn2,
 
-		31, // motorBodyIn3,
-		33, // motorBodyIn4,
-		29, // motorBodyEnb,
+		35, // motorBodyIn3,
+		37, // motorBodyIn4,
+		32, // motorBodyEnb,
 
 		36, // audioDetect
 	)
