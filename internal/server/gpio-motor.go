@@ -2,8 +2,8 @@ package server
 
 import (
 	"context"
-	"github.com/GoBig87/chat-gpt-raspberry-pi-assistant/pkg/api/v1"
-	gpio_motor "github.com/GoBig87/chat-gpt-raspberry-pi-assistant/pkg/gpio-motor"
+	"github.com/Wachiwi/sebaschtian-the-fish/pkg/api/v1"
+	gpio_motor "github.com/Wachiwi/sebaschtian-the-fish/pkg/gpio-motor"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

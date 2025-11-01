@@ -1,7 +1,7 @@
 package gpio_motor
 
 import (
-	"github.com/GoBig87/chat-gpt-raspberry-pi-assistant/pkg/utils"
+	"github.com/Wachiwi/sebaschtian-the-fish/pkg/utils"
 	rpio "github.com/warthog618/gpio"
 	"sync"
 	"time"

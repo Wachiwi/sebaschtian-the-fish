@@ -12,9 +12,9 @@ import (
 	rpio "github.com/warthog618/gpio"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	api_client "github.com/GoBig87/chat-gpt-raspberry-pi-assistant/pkg/api/client"
-	v1 "github.com/GoBig87/chat-gpt-raspberry-pi-assistant/pkg/api/v1"
-	ww "github.com/GoBig87/chat-gpt-raspberry-pi-assistant/pkg/wake-word"
+	api_client "github.com/Wachiwi/sebaschtian-the-fish/pkg/api/client"
+	v1 "github.com/Wachiwi/sebaschtian-the-fish/pkg/api/v1"
+	ww "github.com/Wachiwi/sebaschtian-the-fish/pkg/wake-word"
 )
 
 var (

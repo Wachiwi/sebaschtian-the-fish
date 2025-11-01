@@ -1,8 +1,8 @@
 package server
 
 import (
-	"github.com/GoBig87/chat-gpt-raspberry-pi-assistant/pkg/api/v1"
-	ww "github.com/GoBig87/chat-gpt-raspberry-pi-assistant/pkg/wake-word"
+	"github.com/Wachiwi/sebaschtian-the-fish/pkg/api/v1"
+	ww "github.com/Wachiwi/sebaschtian-the-fish/pkg/wake-word"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"

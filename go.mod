@@ -1,4 +1,4 @@
-module github.com/GoBig87/chat-gpt-raspberry-pi-assistant
+module github.com/wachiwi/sebaschtian-the-fish
 
 go 1.19
 

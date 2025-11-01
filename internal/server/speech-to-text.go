@@ -1,8 +1,8 @@
 package server
 
 import (
-	"github.com/GoBig87/chat-gpt-raspberry-pi-assistant/pkg/api/v1"
-	s2t "github.com/GoBig87/chat-gpt-raspberry-pi-assistant/pkg/speech-to-text"
+	"github.com/Wachiwi/sebaschtian-the-fish/pkg/api/v1"
+	s2t "github.com/Wachiwi/sebaschtian-the-fish/pkg/speech-to-text"
 	"log"
 	"time"
 )
