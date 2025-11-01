@@ -8,7 +8,6 @@ import (
 	"time"
 
 	porcupine "github.com/Picovoice/porcupine/binding/go/v3"
-	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/types/known/emptypb"
 
@@ -22,27 +21,6 @@ var (
 	accessKey string
 	client    *api_client.ApiClient
 )
-
-func init() {
-	err := godotenv.Load("/var/lib/gpt/config.env")
-	if err != nil {
-		err = godotenv.Load()
-		if err != nil {
-			log.Fatal("Error loading .env file")
-			return
-		}
-	}
-	accessKey = os.Getenv("PORCUPINE_ACCESS_KEY")
-	if accessKey == "" {
-		log.Fatal("PORCUPINE_ACCESS_KEY is not set")
-		return
-	}
-	client, err = api_client.NewApiClient()
-	if err != nil {
-		log.Fatal("Error creating api client")
-		return
-	}
-}
 
 func main() {
 	if err := rootCmd.Execute(); err != nil {
