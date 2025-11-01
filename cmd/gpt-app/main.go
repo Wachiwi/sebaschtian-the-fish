@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -37,24 +36,22 @@ func run(ctx context.Context) {
 
 	defer c.Close()
 
-	// enableBodyPin, _ := c.RequestLine(rpi.GPIO12, gpiocdev.AsOutput())
-	// in3Pin, _ := c.RequestLine(rpi.GPIO26, gpiocdev.AsOutput())
-	// in4Pin, _ := c.RequestLine(rpi.GPIO19, gpiocdev.AsOutput())
+	enableBodyPin, _ := c.RequestLine(rpi.GPIO12, gpiocdev.AsOutput())
+	in3Pin, _ := c.RequestLine(rpi.GPIO26, gpiocdev.AsOutput())
+	in4Pin, _ := c.RequestLine(rpi.GPIO19, gpiocdev.AsOutput())
 
-	enableHeadPin, _ := c.RequestLine(rpi.GPIO5, gpiocdev.AsOutput())
-	in1Pin, _ := c.RequestLine(rpi.GPIO13, gpiocdev.AsOutput())
-	in2Pin, _ := c.RequestLine(rpi.GPIO6, gpiocdev.AsOutput())
+	// enableHeadPin, _ := c.RequestLine(rpi.GPIO5, gpiocdev.AsOutput(0, 1))
+	// in1Pin, _ := c.RequestLine(rpi.GPIO13, gpiocdev.AsOutput(0))
+	// in2Pin, _ := c.RequestLine(rpi.GPIO6, gpiocdev.AsOutput())
 
 	for {
-		err := process(ctx, enableHeadPin, in1Pin, in2Pin)
+		err := process(ctx, enableBodyPin, in3Pin, in4Pin)
 		if err != nil {
 			fmt.Printf("Error processing: %v", err)
 		}
 	}
 }
 func process(ctx context.Context, head *gpiocdev.Line, in1 *gpiocdev.Line, in2 *gpiocdev.Line) error {
-	log.Printf("Open")
-
 	_ = head.SetValue(1)
 	_ = in1.SetValue(1)
 	_ = in2.SetValue(0)
