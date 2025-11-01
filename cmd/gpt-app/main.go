@@ -36,9 +36,9 @@ func run(ctx context.Context) {
 
 	defer c.Close()
 
-	enableBodyPin, _ := c.RequestLine(rpi.GPIO12, gpiocdev.AsOutput())
-	in3Pin, _ := c.RequestLine(rpi.GPIO26, gpiocdev.AsOutput())
-	in4Pin, _ := c.RequestLine(rpi.GPIO19, gpiocdev.AsOutput())
+	enableBodyPin, _ := c.RequestLine(rpi.GPIO12, gpiocdev.AsOutput(255))
+	in3Pin, _ := c.RequestLine(rpi.GPIO26, gpiocdev.AsOutput(255))
+	in4Pin, _ := c.RequestLine(rpi.GPIO19, gpiocdev.AsOutput(255))
 
 	// enableHeadPin, _ := c.RequestLine(rpi.GPIO5, gpiocdev.AsOutput(0, 1))
 	// in1Pin, _ := c.RequestLine(rpi.GPIO13, gpiocdev.AsOutput(0))
