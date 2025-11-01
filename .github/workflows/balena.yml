@@ -1,0 +1,18 @@
+name: Docker Image CI
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to Balena
+        uses: balena-io/deploy-to-balena-action@v0.27.0
+        with:
+          balena_token: ${{ balena.token }}
+          fleet: gh_wachiwi/sebaschtian
