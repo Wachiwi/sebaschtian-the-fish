@@ -7,7 +7,6 @@ RUN go mod download
 
 COPY . .
 RUN go build -v -o /dist/gpt-app ./cmd/gpt-app
-RUN go build -v -o /dist/gpt-api ./cmd/gpt-api
 
 FROM debian:trixie
 
@@ -18,6 +17,5 @@ RUN apt-get update && \
 WORKDIR /app
 
 COPY --from=base /dist/gpt-app /app/gpt-app
-COPY --from=base /dist/gpt-api /app/gpt-api
 
 CMD ["./gpt-app"]
