@@ -52,8 +52,8 @@ func run(ctx context.Context) {
 	}
 }
 func process(ctx context.Context, head *gpiocdev.Line, in1 *gpiocdev.Line, in2 *gpiocdev.Line) error {
-	_ = head.SetValue(1)
-	_ = in1.SetValue(1)
+	_ = head.SetValue(100)
+	_ = in1.SetValue(100)
 	_ = in2.SetValue(0)
 	return nil
 }
