@@ -36,9 +36,9 @@ func run(ctx context.Context) {
 
 	defer c.Close()
 
-	enableBodyPin, _ := c.RequestLine(rpi.GPIO12, gpiocdev.AsOutput(255))
-	in3Pin, _ := c.RequestLine(rpi.GPIO26, gpiocdev.AsOutput(255))
-	in4Pin, _ := c.RequestLine(rpi.GPIO19, gpiocdev.AsOutput(255))
+	enableBodyPin, _ := c.RequestLine(rpi.GPIO12, gpiocdev.AsOutput(0))
+	in3Pin, _ := c.RequestLine(rpi.GPIO26, gpiocdev.AsOutput(0))
+	in4Pin, _ := c.RequestLine(rpi.GPIO19, gpiocdev.AsOutput(0))
 
 	// enableHeadPin, _ := c.RequestLine(rpi.GPIO5, gpiocdev.AsOutput(0, 1))
 	// in1Pin, _ := c.RequestLine(rpi.GPIO13, gpiocdev.AsOutput(0))
@@ -52,8 +52,10 @@ func run(ctx context.Context) {
 	}
 }
 func process(ctx context.Context, head *gpiocdev.Line, in1 *gpiocdev.Line, in2 *gpiocdev.Line) error {
-	_ = head.SetValue(255)
-	_ = in1.SetValue(255)
+	// Using 1 for HIGH and 0 for LOW is the standard for digital GPIO.
+	// This ensures the motor driver receives a clear, full-power signal.
+	_ = head.SetValue(1)
+	_ = in1.SetValue(1)
 	_ = in2.SetValue(0)
 	return nil
 }
