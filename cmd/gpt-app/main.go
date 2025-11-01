@@ -89,8 +89,8 @@ func process(ctx context.Context) error {
 
 	// Enable the motor
 	enableHeadPin.High()
-	in3Pin.High()
-	in4Pin.Low()
+	in3Pin.Low()
+	in4Pin.High()
 	if err != nil {
 		return err
 	}
