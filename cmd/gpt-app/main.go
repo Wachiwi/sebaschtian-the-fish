@@ -1,61 +1,53 @@
 package main
 
 import (
-	"context"
-	"fmt"
-	"os"
+	"log"
 
-	"github.com/spf13/cobra"
 	"github.com/warthog618/go-gpiocdev"
 	"github.com/warthog618/go-gpiocdev/device/rpi"
 )
 
 func main() {
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
-	}
-}
-
-var rootCmd = &cobra.Command{
-	Use:           "app",
-	Short:         "Main application to handle speech-to-text, chat-gpt and text-to-speech",
-	SilenceErrors: true,
-	SilenceUsage:  true,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx := cmd.Context()
-		run(ctx)
-		return nil
-	},
-}
-
-func run(ctx context.Context) {
 	c, err := gpiocdev.NewChip("gpiochip0")
 	if err != nil {
 	}
 
 	defer c.Close()
 
-	enableBodyPin, _ := c.RequestLine(rpi.GPIO12, gpiocdev.AsOutput(0))
-	in3Pin, _ := c.RequestLine(rpi.GPIO26, gpiocdev.AsOutput(0))
-	in4Pin, _ := c.RequestLine(rpi.GPIO19, gpiocdev.AsOutput(0))
+	enableBodyPin, err := c.RequestLine(rpi.GPIO12, gpiocdev.AsOutput(0))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer enableBodyPin.Close()
+
+	in3Pin, err := c.RequestLine(rpi.GPIO26, gpiocdev.AsOutput(0))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer in3Pin.Close()
+
+	in4Pin, err := c.RequestLine(rpi.GPIO19, gpiocdev.AsOutput(0))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer in4Pin.Close()
 
 	// enableHeadPin, _ := c.RequestLine(rpi.GPIO5, gpiocdev.AsOutput(0, 1))
 	// in1Pin, _ := c.RequestLine(rpi.GPIO13, gpiocdev.AsOutput(0))
 	// in2Pin, _ := c.RequestLine(rpi.GPIO6, gpiocdev.AsOutput())
 
 	for {
-		err := process(ctx, enableBodyPin, in3Pin, in4Pin)
+		err = enableBodyPin.SetValue(1)
 		if err != nil {
-			fmt.Printf("Error processing: %v", err)
+			log.Fatal(err)
+		}
+		err = in3Pin.SetValue(0)
+		if err != nil {
+			log.Fatal(err)
+		}
+		err = in4Pin.SetValue(1)
+		if err != nil {
+			log.Fatal(err)
 		}
 	}
-}
-func process(ctx context.Context, head *gpiocdev.Line, in1 *gpiocdev.Line, in2 *gpiocdev.Line) error {
-	// Using 1 for HIGH and 0 for LOW is the standard for digital GPIO.
-	// This ensures the motor driver receives a clear, full-power signal.
-	_ = head.SetValue(1)
-	_ = in1.SetValue(0)
-	_ = in2.SetValue(1)
-	return nil
 }
