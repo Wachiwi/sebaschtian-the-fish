@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"time"
 
 	"github.com/spf13/cobra"
-	rpio "github.com/warthog618/gpio"
+	"github.com/warthog618/go-gpiocdev"
+	"github.com/warthog618/go-gpiocdev/device/rpi"
 )
 
 func main() {
@@ -31,53 +31,32 @@ var rootCmd = &cobra.Command{
 }
 
 func run(ctx context.Context) {
+	c, err := gpiocdev.NewChip("gpiochip0")
+	if err != nil {
+	}
+
+	defer c.Close()
+
+	// enableBodyPin, _ := c.RequestLine(rpi.GPIO12, gpiocdev.AsOutput())
+	// in3Pin, _ := c.RequestLine(rpi.GPIO26, gpiocdev.AsOutput())
+	// in4Pin, _ := c.RequestLine(rpi.GPIO19, gpiocdev.AsOutput())
+
+	enableHeadPin, _ := c.RequestLine(rpi.GPIO5, gpiocdev.AsOutput())
+	in1Pin, _ := c.RequestLine(rpi.GPIO13, gpiocdev.AsOutput())
+	in2Pin, _ := c.RequestLine(rpi.GPIO6, gpiocdev.AsOutput())
+
 	for {
-		err := process(ctx)
+		err := process(ctx, enableHeadPin, in1Pin, in2Pin)
 		if err != nil {
 			fmt.Printf("Error processing: %v", err)
 		}
 	}
 }
-
-func process(ctx context.Context) error {
-	err := rpio.Open()
-	defer rpio.Close()
-
-	if err != nil {
-		return err
-	}
+func process(ctx context.Context, head *gpiocdev.Line, in1 *gpiocdev.Line, in2 *gpiocdev.Line) error {
 	log.Printf("Open")
 
-	enableHeadPin := rpio.NewPin(5)
-	in3Pin := rpio.NewPin(6)
-	in4Pin := rpio.NewPin(13)
-
-	enableHeadPin.Output()
-	in3Pin.Output()
-	in4Pin.Output()
-
-	// Enable the motor
-	enableHeadPin.High()
-	in3Pin.Low()
-	in4Pin.High()
-	if err != nil {
-		return err
-	}
-
-	time.Sleep(1 * time.Second)
-	log.Printf("Close")
-
-	enableHeadPin.Output()
-	in3Pin.Output()
-	in4Pin.Output()
-
-	enableHeadPin.Low()
-	in3Pin.Low()
-	in4Pin.Low()
-
-	if err != nil {
-		return err
-	}
-	time.Sleep(1 * time.Second)
+	_ = head.SetValue(1)
+	_ = in1.SetValue(1)
+	_ = in2.SetValue(0)
 	return nil
 }
