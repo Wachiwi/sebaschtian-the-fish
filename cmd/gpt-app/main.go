@@ -79,9 +79,9 @@ func process(ctx context.Context) error {
 	}
 	log.Printf("Open")
 
-	enableHeadPin := rpio.NewPin(29)
-	in3Pin := rpio.NewPin(31)
-	in4Pin := rpio.NewPin(33)
+	enableHeadPin := rpio.NewPin(5)
+	in3Pin := rpio.NewPin(6)
+	in4Pin := rpio.NewPin(13)
 
 	enableHeadPin.Output()
 	in3Pin.Output()
