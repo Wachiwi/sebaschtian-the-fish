@@ -3,16 +3,18 @@ package main
 import (
 	"context"
 	"fmt"
-	porcupine "github.com/Picovoice/porcupine/binding/go/v3"
-	"github.com/joho/godotenv"
-	"github.com/spf13/cobra"
-	"google.golang.org/protobuf/types/known/emptypb"
 	"log"
 	"os"
 	"time"
 
+	porcupine "github.com/Picovoice/porcupine/binding/go/v3"
+	"github.com/joho/godotenv"
+	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/types/known/emptypb"
+
 	api_client "github.com/GoBig87/chat-gpt-raspberry-pi-assistant/pkg/api/client"
 	v1 "github.com/GoBig87/chat-gpt-raspberry-pi-assistant/pkg/api/v1"
+	gpio_motor "github.com/GoBig87/chat-gpt-raspberry-pi-assistant/pkg/gpio-motor"
 	ww "github.com/GoBig87/chat-gpt-raspberry-pi-assistant/pkg/wake-word"
 )
 
@@ -63,14 +65,7 @@ var rootCmd = &cobra.Command{
 
 func run(ctx context.Context) {
 	for {
-		// 1. Wake word
-		log.Println("Listening for wake word...")
-		_, err := detectWakeWord(ctx)
-		if err != nil {
-			log.Printf("Error detecting wake word: %v", err)
-			continue
-		}
-		err = process(ctx)
+		err := process(ctx)
 		if err != nil {
 			fmt.Printf("Error processing: %v", err)
 		}
@@ -98,42 +93,25 @@ func detectWakeWord(ctx context.Context) (porcupine.BuiltInKeyword, error) {
 }
 
 func process(ctx context.Context) error {
-	// raise head to acknowledge wake word
-	_, err := client.MTR.RaiseHead(ctx, &emptypb.Empty{})
+	gpioMotor, err := gpio_motor.MakeNewGpioMotor(
+		29, // motorMouthEna,
+		31, // motorMouthIn1,
+		33, // motorMouthIn2,
+
+		35, // motorBodyIn3,
+		37, // motorBodyIn4,
+		32, // motorBodyEnb,
+
+		36, // audioDetect
+	)
 	if err != nil {
 		return err
 	}
-	defer client.MTR.ResetAll(ctx, &emptypb.Empty{})
-
-	prompt, err := processSpeechToText(ctx)
-	if err != nil {
-		return err
-	}
-
-	done1 := make(chan struct{})
-	defer close(done1)
-	// Start a goroutine to raise and lower the tail
-	go wagTail(ctx, done1)
-
-	answer, err := processChatGptPrompt(ctx, prompt)
-	if err != nil {
-		return err
-	}
-	// Stop the goroutine
-	done1 <- struct{}{}
-
-	done2 := make(chan struct{})
-	defer close(done2)
-	// Start a goroutine to move mouth
-	go moveMouth(ctx, done2)
-
-	err = processChatGptResponse(ctx, answer)
-	if err != nil {
-		return err
-	}
-	// Stop the goroutine
-	done2 <- struct{}{}
-	return err
+	gpioMotor.OpenMouth()
+	time.Sleep(1 * time.Second)
+	gpioMotor.CloseMouth()
+	time.Sleep(1 * time.Second)
+	return nil
 }
 
 func processSpeechToText(ctx context.Context) (string, error) {
