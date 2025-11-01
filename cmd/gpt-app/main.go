@@ -1,53 +1,49 @@
 package main
 
 import (
+	"fmt"
 	"log"
+	"time"
 
-	"github.com/warthog618/go-gpiocdev"
-	"github.com/warthog618/go-gpiocdev/device/rpi"
+	"github.com/wachiwi/sebaschtian-the-fish/pkg/fish"
 )
 
 func main() {
-	c, err := gpiocdev.NewChip("gpiochip0")
+	myFish, err := fish.NewFish("gpiochip0")
 	if err != nil {
+		log.Fatalf("failed to initialize fish: %v", err)
 	}
+	defer myFish.Close()
 
-	defer c.Close()
-
-	enableBodyPin, err := c.RequestLine(rpi.GPIO12, gpiocdev.AsOutput(0))
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer enableBodyPin.Close()
-
-	in3Pin, err := c.RequestLine(rpi.GPIO26, gpiocdev.AsOutput(0))
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer in3Pin.Close()
-
-	in4Pin, err := c.RequestLine(rpi.GPIO19, gpiocdev.AsOutput(0))
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer in4Pin.Close()
-
-	enableHeadPin, _ := c.RequestLine(rpi.GPIO5, gpiocdev.AsOutput(0, 1))
-	in1Pin, _ := c.RequestLine(rpi.GPIO13, gpiocdev.AsOutput(0))
-	in2Pin, _ := c.RequestLine(rpi.GPIO6, gpiocdev.AsOutput())
-
+	// Example sequence to demonstrate the new API.
+	// This can be replaced with the actual application logic.
 	for {
-		err = enableBodyPin.SetValue(1)
-		if err != nil {
-			log.Fatal(err)
+		fmt.Println("Opening mouth...")
+		if err := myFish.OpenMouth(); err != nil {
+			log.Printf("Error opening mouth: %v", err)
 		}
-		err = in3Pin.SetValue(0)
-		if err != nil {
-			log.Fatal(err)
+		time.Sleep(2 * time.Second)
+
+		fmt.Println("Closing mouth...")
+		if err := myFish.CloseMouth(); err != nil {
+			log.Printf("Error closing mouth: %v", err)
 		}
-		err = in4Pin.SetValue(1)
-		if err != nil {
-			log.Fatal(err)
+		time.Sleep(2 * time.Second)
+
+		fmt.Println("Raising body...")
+		if err := myFish.RaiseBody(); err != nil {
+			log.Printf("Error raising body: %v", err)
 		}
+		time.Sleep(2 * time.Second)
+
+		fmt.Println("Raising tail...")
+		if err := myFish.RaiseTail(); err != nil {
+			log.Printf("Error raising tail: %v", err)
+		}
+		time.Sleep(2 * time.Second)
+
+		myFish.StopBody()
+		myFish.StopMouth()
+		time.Sleep(1 * time.Second)
 	}
 }
