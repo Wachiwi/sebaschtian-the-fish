@@ -1,0 +1,5 @@
+services:
+  sebaschtian:
+    build: .
+    cap_add:
+      - SYS_RAWIO
