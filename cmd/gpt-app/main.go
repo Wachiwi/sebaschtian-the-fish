@@ -32,9 +32,9 @@ func main() {
 	}
 	defer in4Pin.Close()
 
-	// enableHeadPin, _ := c.RequestLine(rpi.GPIO5, gpiocdev.AsOutput(0, 1))
-	// in1Pin, _ := c.RequestLine(rpi.GPIO13, gpiocdev.AsOutput(0))
-	// in2Pin, _ := c.RequestLine(rpi.GPIO6, gpiocdev.AsOutput())
+	enableHeadPin, _ := c.RequestLine(rpi.GPIO5, gpiocdev.AsOutput(0, 1))
+	in1Pin, _ := c.RequestLine(rpi.GPIO13, gpiocdev.AsOutput(0))
+	in2Pin, _ := c.RequestLine(rpi.GPIO6, gpiocdev.AsOutput())
 
 	for {
 		err = enableBodyPin.SetValue(1)
