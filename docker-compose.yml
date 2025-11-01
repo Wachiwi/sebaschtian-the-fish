@@ -3,5 +3,7 @@ version: "2"
 services:
   sebaschtian:
     build: .
+    devices:
+      - "/dev/gpiomem:/dev/gpiomem"
     cap_add:
       - SYS_RAWIO
