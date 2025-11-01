@@ -85,9 +85,18 @@ func process(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	gpioMotor.OpenMouth()
+	log.Printf("Open")
+	err = gpioMotor.OpenMouth()
+	if err != nil {
+		return err
+	}
+
 	time.Sleep(1 * time.Second)
-	gpioMotor.CloseMouth()
+	log.Printf("Close")
+	err = gpioMotor.CloseMouth()
+	if err != nil {
+		return err
+	}
 	time.Sleep(1 * time.Second)
 	return nil
 }
