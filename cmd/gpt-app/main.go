@@ -55,7 +55,7 @@ func process(ctx context.Context, head *gpiocdev.Line, in1 *gpiocdev.Line, in2 *
 	// Using 1 for HIGH and 0 for LOW is the standard for digital GPIO.
 	// This ensures the motor driver receives a clear, full-power signal.
 	_ = head.SetValue(1)
-	_ = in1.SetValue(1)
-	_ = in2.SetValue(0)
+	_ = in1.SetValue(0)
+	_ = in2.SetValue(1)
 	return nil
 }
