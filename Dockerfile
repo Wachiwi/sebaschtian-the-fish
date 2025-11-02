@@ -1,4 +1,4 @@
-FROM golang:1-trixie as base
+FROM golang:1-trixie AS base
 
 WORKDIR /app
 
@@ -6,7 +6,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN go build -v -o /dist/gpt-app ./cmd/gpt-app
+RUN go build -v -o /dist/fish ./cmd/fish
 
 FROM debian:trixie
 
@@ -16,6 +16,6 @@ RUN apt-get update && \
 
 WORKDIR /app
 
-COPY --from=base /dist/gpt-app /app/gpt-app
+COPY --from=base /dist/fish /app/fish
 
 CMD ["./gpt-app"]
