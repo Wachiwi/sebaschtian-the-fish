@@ -1,7 +1,8 @@
-package kantine
+package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -139,4 +140,13 @@ func Fetch() []OutputMenu {
 	}
 	return finalOutput
 
+}
+
+func main() {
+	menu := Fetch()
+	jsonData, err := json.MarshalIndent(menu, "", "  ")
+	if err != nil {
+		log.Fatalf("Error marshalling to JSON: %v", err)
+	}
+	fmt.Println(string(jsonData))
 }
