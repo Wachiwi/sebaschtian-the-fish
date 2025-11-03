@@ -5,6 +5,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/robfig/cron/v3"
 	"github.com/wachiwi/sebaschtian-the-fish/pkg/fish"
 )
 
@@ -15,40 +16,41 @@ func main() {
 	}
 	defer myFish.Close()
 
-	// Example sequence to demonstrate the new API.
-	// This can be replaced with the actual application logic.
-	for {
+	loc, err := time.LoadLocation("Europe/Berlin")
+	if err != nil {
+		log.Fatalf("Error loading location: %v", err)
+	}
+
+	c := cron.New(cron.WithLocation(loc))
+
+	c.AddFunc("0 12 * * *", func() {
+		myFish.Lock()
+		defer myFish.Unlock()
+
+		fmt.Println("Mittag...")
+		fmt.Println("Raising body...")
+		if err := myFish.RaiseBody(); err != nil {
+			log.Printf("Error raising body: %v", err)
+		}
+		time.Sleep(1 * time.Second)
 		fmt.Println("Opening mouth...")
 		if err := myFish.OpenMouth(); err != nil {
 			log.Printf("Error opening mouth: %v", err)
 		}
 		time.Sleep(2 * time.Second)
-
-		fmt.Println("Closing mouth...")
-		if err := myFish.CloseMouth(); err != nil {
+		fmt.Println("CloseMouth mouth...")
+		if err := myFish.OpenMouth(); err != nil {
 			log.Printf("Error closing mouth: %v", err)
 		}
-		time.Sleep(2 * time.Second)
-
-		// fmt.Println("Raising body...")
-		// if err := myFish.RaiseBody(); err != nil {
-		// 	log.Printf("Error raising body: %v", err)
-		// }
-		// time.Sleep(2 * time.Second)
-
-		// fmt.Println("Stop body...")
-		// if err := myFish.StopBody(); err != nil {
-		// 	log.Printf("Error raising tail: %v", err)
-		// }
-
-		// fmt.Println("Raising tail...")
-		// if err := myFish.RaiseTail(); err != nil {
-		// 	log.Printf("Error raising tail: %v", err)
-		// }
-		// time.Sleep(2 * time.Second)
-
-		// myFish.StopBody()
-		// myFish.StopMouth()
 		time.Sleep(1 * time.Second)
-	}
+		fmt.Println("Sopping body...")
+		if err := myFish.StopBody(); err != nil {
+			log.Printf("Error stopping body: %v", err)
+		}
+	})
+	go c.Start()
+
+	// 5. Keep the main program alive
+	select {}
+
 }

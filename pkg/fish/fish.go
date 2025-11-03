@@ -2,6 +2,7 @@ package fish
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/warthog618/go-gpiocdev"
 	"github.com/warthog618/go-gpiocdev/device/rpi"
@@ -43,6 +44,7 @@ func (m *Motor) Stop() error {
 
 // Fish represents the fish with its controllable parts.
 type Fish struct {
+	mu        sync.Mutex
 	chip      *gpiocdev.Chip
 	HeadMotor *Motor
 	BodyMotor *Motor
@@ -98,6 +100,14 @@ func NewFish(chipName string) (*Fish, error) {
 	}
 
 	return fish, nil
+}
+
+func (f *Fish) Lock() {
+	f.mu.Lock()
+}
+
+func (f *Fish) Unlock() {
+	f.mu.Unlock()
 }
 
 // Close releases all GPIO resources.
