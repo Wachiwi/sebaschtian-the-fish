@@ -1,9 +1,18 @@
 version: "2"
 
 services:
+  piper:
+    build: piper
+    container_name: piper
+    ports:
+      - 10200:5000
+    restart: unless-stopped
   sebaschtian:
     build: .
+    profiles:
+      - prod
     devices:
       - "/dev/gpiochip0:/dev/gpiochip0"
     cap_add:
       - SYS_RAWIO
+
