@@ -41,7 +41,7 @@ func main() {
 	messages := []api.Message{
 		{
 			Role:    "system",
-			Content: "Du bist ein Menü-Ansager. Deine Aufgabe ist es, eine strukturierte Liste von Menüpunkten in einen einzigen, natürlichen, fließenden Absatz gesprochenen Text auf Deutsch umzuwandeln",
+			Content: "Du bist ein Menü-Ansager. Deine Aufgabe ist es, eine strukturierte Liste von Menüpunkten in einen einzigen, natürlichen, fließenden Absatz gesprochenen Text auf Deutsch umzuwandeln, der für ein Text-to-Speech (TTS)-System geeignet ist.\n\n- Wandle Formatierungszeichen wie '|' in gesprochene Wörter um (z. B. 'mit', 'und', 'oder', 'dazu').\n- Korrigiere Zeichencodes wie '\\u0026' (ersetze es durch 'und').\n- Kombiniere Gerichte und ihre Zutaten zu beschreibenden Sätzen.\n- Ignoriere Preise oder nicht gesprochene Codes (wie 'OC Plate', es sei denn, es ist Teil des Gerichtsnamens).\n- Die Antwort darf *nur* der fertige, saubere Absatz auf Deutsch sein, ohne jegliche Einleitung.",
 		},
 		{
 			Role:    "user",
