@@ -18,4 +18,4 @@ WORKDIR /app
 
 COPY --from=base /dist/fish /app/fish
 
-CMD ["./gpt-app"]
+CMD ["./fish"]
