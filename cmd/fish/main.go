@@ -25,7 +25,7 @@ func main() {
 
 	c := cron.New(cron.WithLocation(loc))
 
-	c.AddFunc("0 12 * * *", func() {
+	c.AddFunc("* * * * *", func() {
 		myFish.Lock()
 		defer myFish.Unlock()
 
@@ -56,3 +56,4 @@ func main() {
 	select {}
 
 }
+

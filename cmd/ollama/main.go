@@ -14,7 +14,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	model := "tinyllama"
+	model := "deepseek-r1:7b"
 	ctx := context.Background()
 	pullRequest := &api.PullRequest{
 		Model: model,
@@ -29,19 +29,17 @@ func main() {
 		log.Fatal(err)
 	}
 	menuData := `
-"HOT \u0026 COLD | Winterliche Maronensuppe \u0026 The SMALL Green ",
-"OC Plate | Tiroler Gröstl | Frühlingsgemüse | Kartoffeln | Pilze | Kräuter-Mandelcreme ",
-"Claudis Hackbraten | Karotten-Blumenkohlgemüse | Kartoffellstampf | Rahmsauce ",
-"Burgunderbraten | Rind | Muskatspätzle | Blaukraut | Preiselbeeren ",
-"Haselnusspudding   ",
-"Salatbuffet \"The BIG Green\" | The SMALL Green 4,35 €  ",
-"Pizza Coca de Verdura  | Aubergine | Champignon | Paprika | Zucchini | Mozzarella ",
-"TEMPURA Bowl | Gebackenes Gemüse | Shiitake | Pilze | Salatmix | Miso Mayo | Limetten- Joghurt Dressing "
+	<item>OC Plate | Tiroler Gröstl | Frühlingsgemüse | Kartoffeln | Pilze | Kräuter-Mandelcreme</item>
+	<item>Claudis Hackbraten | Karotten-Blumenkohlgemüse | Kartoffellstampf | Rahmsauce</item>
+	<item>Burgunderbraten | Rind | Muskatspätzle | Blaukraut | Preiselbeeren</item>
+	<item>Haselnusspuddin</item>
+	<item>Pizza Coca de Verdura  | Aubergine | Champignon | Paprika | Zucchini | Mozzarella</item>
+	<item>TEMPURA Bowl | Gebackenes Gemüse | Shiitake | Pilze | Salatmix | Miso Mayo | Limetten- Joghurt Dressing</item>
 `
 	messages := []api.Message{
 		{
 			Role:    "system",
-			Content: "Du bist ein Menü-Ansager. Deine Aufgabe ist es, eine strukturierte Liste von Menüpunkten in einen einzigen, natürlichen, fließenden Absatz gesprochenen Text auf Deutsch umzuwandeln, der für ein Text-to-Speech (TTS)-System geeignet ist.\n\n- Wandle Formatierungszeichen wie '|' in gesprochene Wörter um (z. B. 'mit', 'und', 'oder', 'dazu').\n- Korrigiere Zeichencodes wie '\\u0026' (ersetze es durch 'und').\n- Kombiniere Gerichte und ihre Zutaten zu beschreibenden Sätzen.\n- Ignoriere Preise oder nicht gesprochene Codes (wie 'OC Plate', es sei denn, es ist Teil des Gerichtsnamens).\n- Die Antwort darf *nur* der fertige, saubere Absatz auf Deutsch sein, ohne jegliche Einleitung.",
+			Content: "Du bist ein Menü-Ansager. Deine Aufgabe ist es, eine strukturierte Liste von Menüpunkten in einen einzigen, natürlichen, fließenden Absatz gesprochenen Text auf Deutsch umzuwandeln\n\n- Wandle Formatierungszeichen wie '|' in gesprochene Wörter um (z. B. 'mit', 'und', 'oder', 'dazu').\n- Kombiniere Gerichte und ihre Zutaten zu beschreibenden Sätzen.\n- Ignoriere Preise oder nicht gesprochene Codes (wie 'OC Plate', es sei denn, es ist Teil des Gerichtsnamens).\n- Die Antwort darf *nur* der fertige, saubere Absatz auf Deutsch sein, ohne jegliche Einleitung.",
 		},
 		{
 			Role:    "user",
