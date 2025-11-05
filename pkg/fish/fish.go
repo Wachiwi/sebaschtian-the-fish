@@ -41,6 +41,12 @@ func (m *Motor) Reverse() error {
 
 // Stop halts the motor.
 func (m *Motor) Stop() error {
+	if err := m.in1.SetValue(0); err != nil {
+		return err
+	}
+	if err := m.in2.SetValue(0); err != nil {
+		return err
+	}
 	return m.enable.SetValue(0)
 }
 
@@ -148,3 +154,4 @@ func (f *Fish) RaiseTail() error {
 func (f *Fish) StopBody() error {
 	return f.BodyMotor.Stop()
 }
+
