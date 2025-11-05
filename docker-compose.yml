@@ -17,3 +17,5 @@ services:
       - "/dev/gpiochip0:/dev/gpiochip0"
     cap_add:
       - SYS_RAWIO
+volumes:
+  ollama_data:
