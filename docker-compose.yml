@@ -5,6 +5,8 @@ services:
     ports:
       - 11434:11434
     image: ollama/ollama
+    volumes:
+      - ollama_data:/root/.ollama
   piper:
     build: piper
     ports:
