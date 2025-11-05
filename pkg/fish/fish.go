@@ -19,37 +19,28 @@ type Motor struct {
 
 // Forward turns the motor in the forward direction.
 func (m *Motor) Forward() error {
-	if err := m.enable.SetValue(1); err != nil {
-		return err
-	}
 	if err := m.in1.SetValue(1); err != nil {
 		return err
 	}
 	if err := m.in2.SetValue(0); err != nil {
 		return err
 	}
-	return m.enable.SetValue(0)
+	return m.enable.SetValue(1)
 }
 
 // Reverse turns the motor in the reverse direction.
 func (m *Motor) Reverse() error {
-	if err := m.enable.SetValue(1); err != nil {
-		return err
-	}
 	if err := m.in1.SetValue(0); err != nil {
 		return err
 	}
 	if err := m.in2.SetValue(1); err != nil {
 		return err
 	}
-	return m.enable.SetValue(0)
+	return m.enable.SetValue(1)
 }
 
 // Stop halts the motor.
 func (m *Motor) Stop() error {
-	if err := m.enable.SetValue(1); err != nil {
-		return err
-	}
 	if err := m.in1.SetValue(0); err != nil {
 		return err
 	}
