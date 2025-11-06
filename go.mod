@@ -9,7 +9,12 @@ require (
 )
 
 require (
+	github.com/ebitengine/purego v0.4.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
+	github.com/hajimehoshi/oto/v2 v2.4.3 // indirect
+	github.com/youpy/go-riff v0.1.0 // indirect
+	github.com/youpy/go-wav v0.3.2 // indirect
+	github.com/zaf/g711 v0.0.0-20190814101024-76a4a538f52b // indirect
 	golang.org/x/crypto v0.36.0 // indirect
 	golang.org/x/sys v0.31.0 // indirect
 )

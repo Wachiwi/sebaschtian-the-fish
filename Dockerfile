@@ -11,7 +11,7 @@ RUN go build -v -o /dist/fish ./cmd/fish
 FROM debian:trixie
 
 RUN apt-get update && \
-    apt-get install -y libgpiod-dev ca-certificates && \
+    apt-get install -y libgpiod-dev ca-certificates libasound2-dev && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
