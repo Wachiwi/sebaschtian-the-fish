@@ -58,7 +58,7 @@ func main() {
 	}
 	defer myFish.Close()
 
-	piperClient := piper.NewPiperClient("http://piper:5000/synthesize")
+	piperClient := piper.NewPiperClient("http://piper:5000")
 
 	loc, err := time.LoadLocation("Europe/Berlin")
 	if err != nil {
