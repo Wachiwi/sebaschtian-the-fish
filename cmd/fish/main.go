@@ -49,6 +49,16 @@ func main() {
 		if err := myFish.StopBody(); err != nil {
 			log.Printf("Error stopping body: %v", err)
 		}
+		time.Sleep(1 * time.Second)
+		fmt.Println("Tail...")
+		if err := myFish.RaiseTail(); err != nil {
+			log.Printf("Error stopping body: %v", err)
+		}
+		time.Sleep(1 * time.Second)
+		fmt.Println("Tail...")
+		if err := myFish.StopBody(); err != nil {
+			log.Printf("Error stopping body: %v", err)
+		}
 	})
 	go c.Start()
 
