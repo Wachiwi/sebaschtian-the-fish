@@ -3,6 +3,9 @@ FROM golang:1-trixie AS base
 WORKDIR /app
 
 COPY go.mod go.sum ./
+
+RUN apt-get update && apt-get install -y pkg-config libasound2-dev && rm -rf /var/lib/apt/lists/*
+
 RUN go mod download
 
 COPY . .
