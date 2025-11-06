@@ -15,6 +15,7 @@ services:
     build: .
     devices:
       - "/dev/gpiochip0:/dev/gpiochip0"
+      - "/dev/snd:/dev/snd"
     cap_add:
       - SYS_RAWIO
     labels:
