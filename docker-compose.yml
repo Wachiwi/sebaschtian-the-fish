@@ -17,5 +17,7 @@ services:
       - "/dev/gpiochip0:/dev/gpiochip0"
     cap_add:
       - SYS_RAWIO
+    labels:
+      io.balena.features.dbus: '1'
 volumes:
   ollama_data:
