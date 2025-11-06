@@ -41,7 +41,7 @@ func main() {
 		}
 		time.Sleep(2 * time.Second)
 		fmt.Println("Closing mouth...")
-		if err := myFish.CloseMouth(); err != nil {
+		if err := myFish.StopMouth(); err != nil {
 			log.Printf("Error closing mouth: %v", err)
 		}
 		time.Sleep(1 * time.Second)
