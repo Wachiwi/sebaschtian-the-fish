@@ -18,15 +18,9 @@ services:
       - "/dev/snd:/dev/snd"
     cap_add:
       - SYS_RAWIO
-    labels:
-      io.balena.features.dbus: '1'
-  bluetooth:
-    image: bh.cr/balenalabs/bluetooth
-    network_mode: host
-    cap_add:
       - NET_ADMIN
     restart: on-failure
     labels:
-      io.balena.features.dbus: 1
+      io.balena.features.dbus: '1'
 volumes:
   ollama_data:
