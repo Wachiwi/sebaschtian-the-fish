@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"fmt"
 	"log"
+	"math/rand"
 	"time"
 
 	"github.com/hajimehoshi/oto/v2"
@@ -16,6 +17,65 @@ import (
 )
 
 var otoCtx *oto.Context
+
+type Phrase struct {
+	Text   string
+	Weight int
+}
+
+func getWeightedRandomPhrase() string {
+	now := time.Now()
+	hour := now.Hour()
+	day := now.Day()
+
+	phrases := []Phrase{
+		{Text: "Bald ist Mittag", Weight: 10},     // Base weight for lunch
+		{Text: "Bald ist Feierabend", Weight: 10}, // Base weight for end of work
+		{Text: "Es ist spät, Zeit für Magic!", Weight: 10},
+		{Text: "Feierabend, wie das duftet. Kräftig, deftig, würzig gut!", Weight: 10}, // Base weight for end of work
+		{Text: "Es ist Mittwoch, meine Kerle.", Weight: 50},
+		{Text: "Komm in die Gruppe! Hinterbüro ist beste!", Weight: 50},
+		{Text: "Hallo, I bims. Vong Fisch Sprache her.", Weight: 50},
+		{Text: "Der Gerät wird nie müde. Der Gerät schläft nie ein. Der Gerät ist immer vor die Chef im Geschäft.", Weight: 50},
+		{Text: "Haben wir noch Peps da?", Weight: 50},
+		{Text: "Läuft bei uns. Ich mach nix, bin aber auch nicht billable.", Weight: 50},
+	}
+
+	// Adjust weights based on the time
+	if hour >= 11 && hour <= 12 {
+		phrases[0].Weight += 70
+	}
+	if hour >= 15 && hour <= 17 {
+		phrases[1].Weight += 70
+		phrases[2].Weight += 70
+	}
+	if hour >= 17 && hour <= 19 {
+		phrases[3].Weight += 70
+	}
+
+	if day == 3 {
+		phrases[4].Weight += 100
+	} else {
+		phrases[4].Weight = 0
+	}
+
+	// Calculate total weight
+	totalWeight := 0
+	for _, p := range phrases {
+		totalWeight += p.Weight
+	}
+
+	// Generate a random number and select a phrase
+	r := rand.Intn(totalWeight)
+	for _, p := range phrases {
+		r -= p.Weight
+		if r < 0 {
+			return p.Text
+		}
+	}
+
+	return phrases[0].Text // Fallback to the default phrase
+}
 
 func say(piperClient *piper.PiperClient, text string) {
 	log.Printf("saying '%s'...", text)
@@ -74,7 +134,8 @@ func main() {
 		myFish.Lock()
 		defer myFish.Unlock()
 
-		fmt.Println("Mittag...")
+		phraseToSay := getWeightedRandomPhrase()
+		fmt.Printf("%s...\n", phraseToSay)
 		fmt.Println("Raising body...")
 		if err := myFish.RaiseBody(); err != nil {
 			log.Printf("Error raising body: %v", err)
@@ -84,7 +145,7 @@ func main() {
 		if err := myFish.OpenMouth(); err != nil {
 			log.Printf("Error opening mouth: %v", err)
 		}
-		say(piperClient, "Mittag")
+		say(piperClient, phraseToSay)
 		time.Sleep(2 * time.Second)
 		fmt.Println("Closing mouth...")
 		if err := myFish.StopMouth(); err != nil {
