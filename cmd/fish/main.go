@@ -26,18 +26,9 @@ func say(piperClient *piper.PiperClient, text string) {
 	}
 
 	wavReader := wav.NewReader(bytes.NewReader(wavData))
-	format, err := wavReader.Format()
-	if err != nil {
-		log.Printf("failed to read wav format: %v", err)
-		return
-	}
-
 	if otoCtx == nil {
-		otoCtx, _, err = oto.NewContext(int(format.SampleRate), int(format.NumChannels), oto.FormatSignedInt16LE)
-		if err != nil {
-			log.Printf("failed to create oto context: %v", err)
-			return
-		}
+		log.Printf("audio context not initialized")
+		return
 	}
 
 	player := otoCtx.NewPlayer(wavReader)
@@ -58,6 +49,17 @@ func main() {
 		log.Fatalf("failed to initialize fish: %v", err)
 	}
 	defer myFish.Close()
+
+	// Initialize audio context at startup with standard CD quality settings
+	// This ensures the audio device is active and ready before first use
+	log.Println("Initializing audio context...")
+	var ready chan struct{}
+	otoCtx, ready, err = oto.NewContext(22050, 1, oto.FormatSignedInt16LE)
+	if err != nil {
+		log.Fatalf("failed to create oto context: %v", err)
+	}
+	<-ready
+	log.Println("Audio context ready")
 
 	piperClient := piper.NewPiperClient("http://piper:5000")
 
