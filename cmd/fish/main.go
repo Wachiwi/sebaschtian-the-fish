@@ -215,6 +215,8 @@ func say(myFish *fish.Fish, piperClient *piper.PiperClient, text string) {
 		myFish.Lock()
 		if isMouthOpen {
 			myFish.CloseMouth()
+			time.Sleep(1 * time.Second)
+			myFish.StopMouth()
 		}
 		myFish.Unlock()
 	}()
@@ -276,8 +278,6 @@ func main() {
 		myFish.Unlock()
 		time.Sleep(1 * time.Second)
 
-		// The say function now handles all mouth animation and its own thread-safety.
-		// We do not need to lock the fish before calling it.
 		say(myFish, piperClient, phraseToSay)
 
 		// Wait for speech to finish before continuing the animation sequence.
