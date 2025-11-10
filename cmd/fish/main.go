@@ -4,7 +4,9 @@ package main
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
+	"io"
 	"log"
 	"math/rand"
 	"time"
@@ -118,7 +120,7 @@ func getWeightedRandomPhrase() string {
 	return phrases[0].Text
 }
 
-func say(piperClient *piper.PiperClient, text string) {
+func say(myFish *fish.Fish, piperClient *piper.PiperClient, text string) {
 	log.Printf("saying '%s'...", text)
 	wavData, err := piperClient.Synthesize(text)
 	if err != nil {
@@ -126,18 +128,102 @@ func say(piperClient *piper.PiperClient, text string) {
 		return
 	}
 
+	// The wav.Reader parses the WAV header and provides a reader for the raw PCM data.
 	wavReader := wav.NewReader(bytes.NewReader(wavData))
+	pcmData, err := io.ReadAll(wavReader)
+	if err != nil {
+		log.Printf("failed to read pcm data: %v", err)
+		return
+	}
+
 	if otoCtx == nil {
 		log.Printf("audio context not initialized")
 		return
 	}
 
-	player := otoCtx.NewPlayer(wavReader)
+	// Create two readers for the PCM data: one for playback, one for animation analysis.
+	playbackReader := bytes.NewReader(pcmData)
+	analysisReader := bytes.NewReader(pcmData)
+
+	player := otoCtx.NewPlayer(playbackReader)
 	player.Play()
-	time.Sleep(1 * time.Second)
+
+	// Start a separate goroutine to handle the mouth animation.
+	go func() {
+		// Audio parameters
+		const sampleRate = 22050 // Hz
+		const bitDepth = 2       // 16-bit audio = 2 bytes per sample
+		const channels = 1       // Mono
+		const chunkDuration = 100 * time.Millisecond
+
+		// Animation parameters
+		const amplitudeThreshold = 1500 // Determines how loud the sound needs to be to open the mouth.
+		isMouthOpen := false
+
+		// Calculate chunk size in bytes
+		chunkSize := int(float64(sampleRate) * chunkDuration.Seconds() * float64(bitDepth*channels))
+		buffer := make([]byte, chunkSize)
+
+		for {
+			n, err := io.ReadFull(analysisReader, buffer)
+			if err == io.EOF || err == io.ErrUnexpectedEOF {
+				break // End of audio stream
+			}
+			if err != nil {
+				log.Printf("Error reading audio for animation: %v", err)
+				break
+			}
+
+			var sum int64
+			var count int
+			// Iterate over the buffer, 2 bytes at a time for 16-bit samples
+			for i := 0; i < n; i += 2 {
+				if i+1 >= n {
+					break
+				}
+				sample := int16(binary.LittleEndian.Uint16(buffer[i : i+2]))
+				// Use absolute value for volume calculation
+				if sample < 0 {
+					sum += int64(-sample)
+				} else {
+					sum += int64(sample)
+				}
+				count++
+			}
+
+			if count == 0 {
+				time.Sleep(chunkDuration)
+				continue
+			}
+
+			avgAmplitude := sum / int64(count)
+
+			// Animate the mouth based on the average amplitude, using the lock for thread safety.
+			myFish.Lock()
+			if avgAmplitude > amplitudeThreshold && !isMouthOpen {
+				myFish.OpenMouth()
+				isMouthOpen = true
+			} else if avgAmplitude <= amplitudeThreshold && isMouthOpen {
+				myFish.CloseMouth()
+				isMouthOpen = false
+			}
+			myFish.Unlock()
+			time.Sleep(chunkDuration)
+		}
+
+		// Ensure the mouth is closed after speaking
+		myFish.Lock()
+		if isMouthOpen {
+			myFish.CloseMouth()
+		}
+		myFish.Unlock()
+	}()
+
+	// Wait for the player to finish
 	for player.IsPlaying() {
 		time.Sleep(100 * time.Millisecond)
 	}
+
 	if err := player.Close(); err != nil {
 		log.Printf("failed to close player: %v", err)
 	}
@@ -162,7 +248,7 @@ func main() {
 
 	piperClient := piper.NewPiperClient("http://piper:5000")
 
-	say(piperClient, "Hallo Ich bins! Bin wieder da und ready!")
+	say(myFish, piperClient, "Hallo Ich bins! Bin wieder da und ready!")
 	myFish.Lock()
 	myFish.StopBody()
 	myFish.StopMouth()
@@ -173,44 +259,53 @@ func main() {
 		log.Fatalf("Error loading location: %v", err)
 	}
 
-	c := cron.New(cron.WithLocation(loc))
+	c := cron.New(
+		cron.WithLocation(loc),
+		cron.WithChain(cron.SkipIfStillRunning(cron.DefaultLogger)),
+	)
 
-	c.AddFunc("*/15 * * * *", func() {
-		myFish.Lock()
-		defer myFish.Unlock()
-
+	c.AddFunc("* * * * *", func() {
 		phraseToSay := getWeightedRandomPhrase()
 		fmt.Printf("%s...\n", phraseToSay)
+
 		fmt.Println("Raising body...")
+		myFish.Lock()
 		if err := myFish.RaiseBody(); err != nil {
 			log.Printf("Error raising body: %v", err)
 		}
+		myFish.Unlock()
 		time.Sleep(1 * time.Second)
-		fmt.Println("Opening mouth...")
-		if err := myFish.OpenMouth(); err != nil {
-			log.Printf("Error opening mouth: %v", err)
-		}
-		say(piperClient, phraseToSay)
+
+		// The say function now handles all mouth animation and its own thread-safety.
+		// We do not need to lock the fish before calling it.
+		say(myFish, piperClient, phraseToSay)
+
+		// Wait for speech to finish before continuing the animation sequence.
+		// A more robust solution might use channels, but a simple sleep works for now.
 		time.Sleep(2 * time.Second)
-		fmt.Println("Closing mouth...")
-		if err := myFish.StopMouth(); err != nil {
-			log.Printf("Error closing mouth: %v", err)
-		}
-		time.Sleep(1 * time.Second)
+
 		fmt.Println("Stopping body...")
+		myFish.Lock()
 		if err := myFish.StopBody(); err != nil {
 			log.Printf("Error stopping body: %v", err)
 		}
+		myFish.Unlock()
 		time.Sleep(1 * time.Second)
+
 		fmt.Println("Tail...")
+		myFish.Lock()
 		if err := myFish.RaiseTail(); err != nil {
 			log.Printf("Error stopping body: %v", err)
 		}
+		myFish.Unlock()
 		time.Sleep(1 * time.Second)
+
 		fmt.Println("Tail...")
+		myFish.Lock()
 		if err := myFish.StopBody(); err != nil {
 			log.Printf("Error stopping body: %v", err)
 		}
+		myFish.Unlock()
 	})
 	go c.Start()
 
