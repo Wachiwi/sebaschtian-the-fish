@@ -34,6 +34,8 @@ func getWeightedRandomPhrase() string {
 		{Text: "Es ist spät, Zeit für Magic!", Weight: 10},
 		{Text: "Feierabend, wie das duftet. Kräftig, deftig, würzig gut!", Weight: 10},
 		{Text: "Es ist Mittwoch, meine Kerle.", Weight: 50},
+		{Text: "Freitag ab eins macht jeder seins!", Weight: 50},
+		{Text: "WOCHENENDE! SAUFEN!", Weight: 50},
 		{Text: "Komm in die Gruppe! Hinterbüro ist beste!", Weight: 50},
 		{Text: "Hallo, I bims. Vong Fisch Sprache her.", Weight: 50},
 		{Text: "Der Gerät wird nie müde. Der Gerät schläft nie ein. Der Gerät ist immer vor die Chef im Geschäft.", Weight: 40},
@@ -54,7 +56,6 @@ func getWeightedRandomPhrase() string {
 		{Text: "Rüdiger keine Kapriolen!", Weight: 50},
 		{Text: "Schauen wir mal was wird. Was wird.", Weight: 50},
 		{Text: "Hey was machst du den hier? Das wolltest du wohl klauen?! ALARM!", Weight: 50},
-		{Text: "WOCHENENDE! SAUFEN!", Weight: 50},
 		{Text: "Was ist denn mit Thorsten los?", Weight: 50},
 		{Text: "ROOOOOOOOOBERT!!!", Weight: 50},
 		{Text: "Meine Mama hat gesagt ich darf Fortnite spielen!", Weight: 50},
@@ -70,22 +71,34 @@ func getWeightedRandomPhrase() string {
 		// {Text: "", Weight: 50},
 	}
 
-	// Adjust weights based on the time
 	if hour >= 11 && hour <= 12 {
 		phrases[0].Weight += 70
+	} else {
+		phrases[0].Weight = 0
 	}
+
 	if hour >= 15 && hour <= 17 {
 		phrases[1].Weight += 70
 		phrases[2].Weight += 70
 	}
 	if hour >= 17 && hour <= 19 {
 		phrases[3].Weight += 70
+	} else {
+		phrases[3].Weight = 0
 	}
 
 	if day == 3 {
-		phrases[4].Weight += 100
+		phrases[4].Weight += 80
 	} else {
 		phrases[4].Weight = 0
+	}
+
+	if day == 5 {
+		phrases[5].Weight += 80
+		phrases[6].Weight += 80
+	} else {
+		phrases[5].Weight = 0
+		phrases[6].Weight = 0
 	}
 
 	totalWeight := 0
