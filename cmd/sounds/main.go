@@ -2,6 +2,7 @@ package main
 
 import (
 	"embed"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -16,8 +17,11 @@ type SoundFile struct {
 	Path string
 }
 
-//go:embed all:templates
-var templates embed.FS
+//go:embed templates/*
+var templateFS embed.FS
+
+//go:embed static/*
+var staticFS embed.FS
 
 func GetSoundFiles() []SoundFile {
 	dataDir := "./sound-data"
@@ -49,11 +53,19 @@ func GetSoundFiles() []SoundFile {
 func main() {
 	router := gin.Default()
 
+	staticSubFS, err := fs.Sub(staticFS, "static")
+	if err != nil {
+		log.Fatalf("Failed to create static sub-filesystem: %v", err)
+	}
+	router.GET("/static/*filepath", func(c *gin.Context) {
+		c.FileFromFS(c.Param("filepath"), http.FS(staticSubFS))
+	})
+
 	router.Static("/sounds", "./sound-data")
 
 	router.GET("/", func(c *gin.Context) {
 		soundFiles := GetSoundFiles()
-		tmpl := template.Must(template.ParseFS(templates, "templates/sounds.html"))
+		tmpl := template.Must(template.ParseFS(templateFS, "templates/sounds.html"))
 		err := tmpl.Execute(c.Writer, gin.H{"soundFiles": soundFiles})
 		if err != nil {
 			log.Printf("Template execution error: %v", err)
@@ -75,7 +87,7 @@ func main() {
 		}
 
 		soundFiles := GetSoundFiles()
-		tmpl := template.Must(template.ParseFS(templates, "templates/sounds.html"))
+		tmpl := template.Must(template.ParseFS(templateFS, "templates/sounds.html"))
 		err = tmpl.ExecuteTemplate(c.Writer, "sound-list", gin.H{"soundFiles": soundFiles})
 		if err != nil {
 			log.Printf("Template fragment execution error: %v", err)
