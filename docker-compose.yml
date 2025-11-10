@@ -24,6 +24,8 @@ services:
     restart: on-failure
     labels:
       io.balena.features.dbus: '1'
+    volumes:
+      - sound-data:/sound-data
   sounds:
     build:
       context: .

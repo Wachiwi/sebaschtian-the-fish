@@ -9,6 +9,8 @@ import (
 	"io"
 	"log"
 	"math/rand"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/hajimehoshi/oto/v2"
@@ -71,7 +73,6 @@ func getWeightedRandomPhrase() string {
 		{Text: "Ich bin der Uwe, ich bin auch dabei.", Weight: 50},
 		{Text: "Warum liegt hier Stroh?", Weight: 50},
 		{Text: "Dunkel war′s, der Mond schien helle,\n\nschneebedeckt die grüne Flur,\n\nals ein Wagen blitzesschnelle\n\nlangsam um die Ecke fuhr.\n\n \n\nDrinnen saßen stehend Leute\n\nschweigend ins Gespräch vertieft\n\nals ein totgeschossner Hase\n\nauf der Sandbank Schlittschuh lief.\n\n \n\nUnd der Wagen fuhr im Trabe\n\nrückwärts einen Berg hinauf.\n\nDroben zog ein alter Rabe\n\ngrade eine Turmuhr auf.\n\n \n\nRingsumher herrscht tiefes Schweigen\n\nund mit fürchterlichem Krach\n\nspielen in des Grases Zweigen\n\nzwei Kamele lautlos Schach.\n\n \n\nUnd auf einer roten Bank,\n\ndie blau angestrichen war\n\nsaß ein blondgelockter Jüngling\n\nmit kohlrabenschwarzem Haar.\n\n \n\nNeben ihm ne alte Schrulle,\n\ndie kaum siebzehn Jahr alt war,\n\nin der Hand ne Butterstulle,\n\ndie mit Schmalz bestrichen war.\n\n \n\nOben auf dem Apfelbaume,\n\nder sehr süße Birnen trug,\n\nhing des Frühlings letzte Pflaume\n\nund an Nüssen noch genug.\n\n \n\nVon der regennassen Straße\n\nwirbelte der Staub empor.\n\nUnd ein Junge bei der Hitze\n\nmächtig an den Ohren fror.\n\n \n\nBeide Hände in den Taschen\n\nhielt er sich die Augen zu.\n\nDenn er konnte nicht ertragen,\n\nwie nach Veilchen roch die Kuh.\n\n \n\nUnd zwei Fische liefen munter\n\ndurch das blaue Kornfeld hin.\n\nEndlich ging die Sonne unter\n\nund der graue Tag erschien.\n\n \n\nHolder Engel, süßer Bengel,\n\nfurchtbar liebes Trampeltier.\n\nDu hast Augen wie Sardellen,\n\nalle Ochsen gleichen Dir.\n\n \n\nEine Kuh, die saß im Schwalbennest\n\nmit sieben jungen Ziegen,\n\ndie feierten ihr Jubelfest\n\nund fingen an zu fliegen.\n\nDer Esel zog Pantoffeln an,\n\nist übers Haus geflogen,\n\nund wenn das nicht die Wahrheit ist,\n\nso ist es doch gelogen.", Weight: 20},
-		// {Text: "", Weight: 50},
 	}
 
 	if hour >= 11 && hour <= 12 {
@@ -79,7 +80,6 @@ func getWeightedRandomPhrase() string {
 	} else {
 		phrases[0].Weight = 0
 	}
-
 	if hour >= 15 && hour <= 17 {
 		phrases[1].Weight += 70
 		phrases[2].Weight += 70
@@ -89,13 +89,11 @@ func getWeightedRandomPhrase() string {
 	} else {
 		phrases[3].Weight = 0
 	}
-
 	if day == 3 {
 		phrases[4].Weight += 80
 	} else {
 		phrases[4].Weight = 0
 	}
-
 	if day == 5 {
 		phrases[5].Weight += 80
 		phrases[6].Weight += 80
@@ -116,58 +114,35 @@ func getWeightedRandomPhrase() string {
 			return p.Text
 		}
 	}
-
 	return phrases[0].Text
 }
 
-func say(myFish *fish.Fish, piperClient *piper.PiperClient, text string) {
-	log.Printf("saying '%s'...", text)
-	wavData, err := piperClient.Synthesize(text)
-	if err != nil {
-		log.Printf("failed to synthesize text: %v", err)
-		return
-	}
-
-	// The wav.Reader parses the WAV header and provides a reader for the raw PCM data.
-	wavReader := wav.NewReader(bytes.NewReader(wavData))
-	pcmData, err := io.ReadAll(wavReader)
-	if err != nil {
-		log.Printf("failed to read pcm data: %v", err)
-		return
-	}
-
+func playAudioWithAnimation(myFish *fish.Fish, pcmData []byte) {
 	if otoCtx == nil {
 		log.Printf("audio context not initialized")
 		return
 	}
 
-	// Create two readers for the PCM data: one for playback, one for animation analysis.
 	playbackReader := bytes.NewReader(pcmData)
 	analysisReader := bytes.NewReader(pcmData)
 
 	player := otoCtx.NewPlayer(playbackReader)
 	player.Play()
 
-	// Start a separate goroutine to handle the mouth animation.
 	go func() {
-		// Audio parameters
-		const sampleRate = 22050 // Hz
-		const bitDepth = 2       // 16-bit audio = 2 bytes per sample
-		const channels = 1       // Mono
+		const sampleRate = 22050
+		const bitDepth = 2
+		const channels = 1
 		const chunkDuration = 100 * time.Millisecond
-
-		// Animation parameters
-		const amplitudeThreshold = 1500 // Determines how loud the sound needs to be to open the mouth.
+		const amplitudeThreshold = 1500
 		isMouthOpen := false
-
-		// Calculate chunk size in bytes
 		chunkSize := int(float64(sampleRate) * chunkDuration.Seconds() * float64(bitDepth*channels))
 		buffer := make([]byte, chunkSize)
 
 		for {
 			n, err := io.ReadFull(analysisReader, buffer)
 			if err == io.EOF || err == io.ErrUnexpectedEOF {
-				break // End of audio stream
+				break
 			}
 			if err != nil {
 				log.Printf("Error reading audio for animation: %v", err)
@@ -176,13 +151,11 @@ func say(myFish *fish.Fish, piperClient *piper.PiperClient, text string) {
 
 			var sum int64
 			var count int
-			// Iterate over the buffer, 2 bytes at a time for 16-bit samples
 			for i := 0; i < n; i += 2 {
 				if i+1 >= n {
 					break
 				}
 				sample := int16(binary.LittleEndian.Uint16(buffer[i : i+2]))
-				// Use absolute value for volume calculation
 				if sample < 0 {
 					sum += int64(-sample)
 				} else {
@@ -198,7 +171,6 @@ func say(myFish *fish.Fish, piperClient *piper.PiperClient, text string) {
 
 			avgAmplitude := sum / int64(count)
 
-			// Animate the mouth based on the average amplitude, using the lock for thread safety.
 			myFish.Lock()
 			if avgAmplitude > amplitudeThreshold && !isMouthOpen {
 				myFish.OpenMouth()
@@ -211,7 +183,6 @@ func say(myFish *fish.Fish, piperClient *piper.PiperClient, text string) {
 			time.Sleep(chunkDuration)
 		}
 
-		// Ensure the mouth is closed after speaking
 		myFish.Lock()
 		if isMouthOpen {
 			myFish.CloseMouth()
@@ -221,7 +192,6 @@ func say(myFish *fish.Fish, piperClient *piper.PiperClient, text string) {
 		myFish.Unlock()
 	}()
 
-	// Wait for the player to finish
 	for player.IsPlaying() {
 		time.Sleep(100 * time.Millisecond)
 	}
@@ -229,7 +199,58 @@ func say(myFish *fish.Fish, piperClient *piper.PiperClient, text string) {
 	if err := player.Close(); err != nil {
 		log.Printf("failed to close player: %v", err)
 	}
+}
+
+func say(myFish *fish.Fish, piperClient *piper.PiperClient, text string) {
+	log.Printf("saying '%s'...", text)
+	wavData, err := piperClient.Synthesize(text)
+	if err != nil {
+		log.Printf("failed to synthesize text: %v", err)
+		return
+	}
+
+	wavReader := wav.NewReader(bytes.NewReader(wavData))
+	pcmData, err := io.ReadAll(wavReader)
+	if err != nil {
+		log.Printf("failed to read pcm data: %v", err)
+		return
+	}
+	playAudioWithAnimation(myFish, pcmData)
 	log.Printf("finished saying '%s'.", text)
+}
+
+func sing(myFish *fish.Fish) {
+	soundDir := "/sound-data"
+	files, err := os.ReadDir(soundDir)
+	if err != nil {
+		log.Printf("failed to read sound directory '%s': %v", soundDir, err)
+		return
+	}
+
+	if len(files) == 0 {
+		log.Println("no sound files to sing, skipping.")
+		return
+	}
+
+	randomFile := files[rand.Intn(len(files))]
+	filePath := filepath.Join(soundDir, randomFile.Name())
+	log.Printf("singing '%s'...", randomFile.Name())
+
+	wavData, err := os.ReadFile(filePath)
+	if err != nil {
+		log.Printf("failed to read sound file '%s': %v", filePath, err)
+		return
+	}
+
+	wavReader := wav.NewReader(bytes.NewReader(wavData))
+	pcmData, err := io.ReadAll(wavReader)
+	if err != nil {
+		log.Printf("failed to decode wav data from '%s': %v", randomFile.Name(), err)
+		return
+	}
+
+	playAudioWithAnimation(myFish, pcmData)
+	log.Printf("finished singing '%s'.", randomFile.Name())
 }
 
 func main() {
@@ -267,9 +288,10 @@ func main() {
 	)
 
 	c.AddFunc("* * * * *", func() {
-		phraseToSay := getWeightedRandomPhrase()
-		fmt.Printf("%s...\n", phraseToSay)
+		// Randomly choose between saying a phrase and singing a song
+		action := rand.Intn(2) // 0 for say, 1 for sing
 
+		// --- Start Fish Animation ---
 		fmt.Println("Raising body...")
 		myFish.Lock()
 		if err := myFish.RaiseBody(); err != nil {
@@ -278,12 +300,15 @@ func main() {
 		myFish.Unlock()
 		time.Sleep(1 * time.Second)
 
-		say(myFish, piperClient, phraseToSay)
+		if action == 0 {
+			phraseToSay := getWeightedRandomPhrase()
+			say(myFish, piperClient, phraseToSay)
+		} else {
+			sing(myFish)
+		}
 
-		// Wait for speech to finish before continuing the animation sequence.
-		// A more robust solution might use channels, but a simple sleep works for now.
-		time.Sleep(2 * time.Second)
-
+		// --- End Fish Animation ---
+		time.Sleep(1 * time.Second) // Small pause after audio
 		fmt.Println("Stopping body...")
 		myFish.Lock()
 		if err := myFish.StopBody(); err != nil {
@@ -295,20 +320,19 @@ func main() {
 		fmt.Println("Tail...")
 		myFish.Lock()
 		if err := myFish.RaiseTail(); err != nil {
-			log.Printf("Error stopping body: %v", err)
+			log.Printf("Error raising tail: %v", err)
 		}
 		myFish.Unlock()
 		time.Sleep(1 * time.Second)
 
-		fmt.Println("Tail...")
+		fmt.Println("Stopping tail...")
 		myFish.Lock()
 		if err := myFish.StopBody(); err != nil {
-			log.Printf("Error stopping body: %v", err)
+			log.Printf("Error stopping tail: %v", err)
 		}
 		myFish.Unlock()
 	})
 	go c.Start()
 
 	select {}
-
 }
