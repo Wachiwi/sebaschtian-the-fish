@@ -68,6 +68,7 @@ func getWeightedRandomPhrase() string {
 		{Text: "EGAL!", Weight: 50},
 		{Text: "Ich bin der Uwe, ich bin auch dabei.", Weight: 50},
 		{Text: "Warum liegt hier Stroh?", Weight: 50},
+		{Text: "Dunkel war′s, der Mond schien helle,\n\nschneebedeckt die grüne Flur,\n\nals ein Wagen blitzesschnelle\n\nlangsam um die Ecke fuhr.\n\n \n\nDrinnen saßen stehend Leute\n\nschweigend ins Gespräch vertieft\n\nals ein totgeschossner Hase\n\nauf der Sandbank Schlittschuh lief.\n\n \n\nUnd der Wagen fuhr im Trabe\n\nrückwärts einen Berg hinauf.\n\nDroben zog ein alter Rabe\n\ngrade eine Turmuhr auf.\n\n \n\nRingsumher herrscht tiefes Schweigen\n\nund mit fürchterlichem Krach\n\nspielen in des Grases Zweigen\n\nzwei Kamele lautlos Schach.\n\n \n\nUnd auf einer roten Bank,\n\ndie blau angestrichen war\n\nsaß ein blondgelockter Jüngling\n\nmit kohlrabenschwarzem Haar.\n\n \n\nNeben ihm ne alte Schrulle,\n\ndie kaum siebzehn Jahr alt war,\n\nin der Hand ne Butterstulle,\n\ndie mit Schmalz bestrichen war.\n\n \n\nOben auf dem Apfelbaume,\n\nder sehr süße Birnen trug,\n\nhing des Frühlings letzte Pflaume\n\nund an Nüssen noch genug.\n\n \n\nVon der regennassen Straße\n\nwirbelte der Staub empor.\n\nUnd ein Junge bei der Hitze\n\nmächtig an den Ohren fror.\n\n \n\nBeide Hände in den Taschen\n\nhielt er sich die Augen zu.\n\nDenn er konnte nicht ertragen,\n\nwie nach Veilchen roch die Kuh.\n\n \n\nUnd zwei Fische liefen munter\n\ndurch das blaue Kornfeld hin.\n\nEndlich ging die Sonne unter\n\nund der graue Tag erschien.\n\n \n\nHolder Engel, süßer Bengel,\n\nfurchtbar liebes Trampeltier.\n\nDu hast Augen wie Sardellen,\n\nalle Ochsen gleichen Dir.\n\n \n\nEine Kuh, die saß im Schwalbennest\n\nmit sieben jungen Ziegen,\n\ndie feierten ihr Jubelfest\n\nund fingen an zu fliegen.\n\nDer Esel zog Pantoffeln an,\n\nist übers Haus geflogen,\n\nund wenn das nicht die Wahrheit ist,\n\nso ist es doch gelogen.", Weight: 30},
 		// {Text: "", Weight: 50},
 	}
 
@@ -213,7 +214,6 @@ func main() {
 	})
 	go c.Start()
 
-	// 5. Keep the main program alive
 	select {}
 
 }
