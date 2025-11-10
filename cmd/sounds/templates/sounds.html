@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Soundboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.8/dist/htmx.min.js"></script>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+<div class="container mx-auto p-8">
+    <h1 class="text-4xl font-bold text-center mb-8">Sebaschtian's Sounds</h1>
+
+    <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+        <h2 class="text-2xl font-semibold mb-4">Upload New Sound</h2>
+        <form hx-post="/upload"
+              hx-target="#sound-list"
+              hx-swap="innerHTML"
+              hx-encoding="multipart/form-data"
+              class="flex items-center space-x-4">
+            <input type="file" name="soundFile" class="file:mr-4 file:py-2 file:px-4
+                      file:rounded-full file:border-0
+                      file:text-sm file:font-semibold
+                      file:bg-violet-50 file:text-violet-700
+                      hover:file:bg-violet-100
+                      flex-grow">
+            <button type="submit" class="bg-violet-500 hover:bg-violet-700 text-white font-bold py-2 px-4 rounded-full">
+                Upload
+            </button>
+        </form>
+    </div>
+
+    <div class="bg-white p-6 rounded-lg shadow-md">
+        <h2 class="text-2xl font-semibold mb-4">Available Sounds</h2>
+        <div id="sound-list" class="space-y-4">
+            {{define "sound-list"}}
+                {{range .soundFiles}}
+                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg shadow-sm">
+                    <span class="font-medium">{{ .Name }}</span>
+                    <audio controls src="{{ .Path }}" class="h-10"></audio>
+                </div>
+                {{else}}
+                <p class="text-gray-500">No sounds uploaded yet.</p>
+                {{end}}
+            {{end}}
+
+            {{template "sound-list" .}}
+        </div>
+    </div>
+
+</div>
+
+</body>
+</html>

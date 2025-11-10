@@ -10,8 +10,9 @@ RUN go mod download
 
 COPY . .
 RUN go build -v -o /dist/fish ./cmd/fish
+RUN go build -v -o /dist/sounds ./cmd/sounds
 
-FROM debian:trixie
+FROM debian:trixie as fish
 
 RUN apt-get update && \
     apt-get install -y libgpiod-dev ca-certificates libasound2-dev && \
@@ -22,3 +23,11 @@ WORKDIR /app
 COPY --from=base /dist/fish /app/fish
 
 CMD ["./fish"]
+
+FROM debian:trixie as sounds
+
+WORKDIR /app
+
+COPY --from=base /dist/sounds /app/sounds
+
+CMD ["./sounds"]

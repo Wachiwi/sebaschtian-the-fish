@@ -12,7 +12,9 @@ services:
     ports:
       - 10200:5000
   sebaschtian:
-    build: .
+    build:
+      context: .
+      target: fish
     devices:
       - "/dev/gpiochip0:/dev/gpiochip0"
       - "/dev/snd:/dev/snd"
@@ -22,5 +24,14 @@ services:
     restart: on-failure
     labels:
       io.balena.features.dbus: '1'
+  sounds:
+    build:
+      context: .
+      target: sounds
+    ports:
+      - "8080:8080"
+    volumes:
+      - sound-data:/app/sound-data
 volumes:
   ollama_data:
+  sound-data:
