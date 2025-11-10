@@ -29,16 +29,45 @@ func getWeightedRandomPhrase() string {
 	day := now.Day()
 
 	phrases := []Phrase{
-		{Text: "Bald ist Mittag", Weight: 10},     // Base weight for lunch
-		{Text: "Bald ist Feierabend", Weight: 10}, // Base weight for end of work
+		{Text: "Bald ist Mittag", Weight: 10},
+		{Text: "Bald ist Feierabend", Weight: 10},
 		{Text: "Es ist spät, Zeit für Magic!", Weight: 10},
-		{Text: "Feierabend, wie das duftet. Kräftig, deftig, würzig gut!", Weight: 10}, // Base weight for end of work
+		{Text: "Feierabend, wie das duftet. Kräftig, deftig, würzig gut!", Weight: 10},
 		{Text: "Es ist Mittwoch, meine Kerle.", Weight: 50},
 		{Text: "Komm in die Gruppe! Hinterbüro ist beste!", Weight: 50},
 		{Text: "Hallo, I bims. Vong Fisch Sprache her.", Weight: 50},
-		{Text: "Der Gerät wird nie müde. Der Gerät schläft nie ein. Der Gerät ist immer vor die Chef im Geschäft.", Weight: 50},
+		{Text: "Der Gerät wird nie müde. Der Gerät schläft nie ein. Der Gerät ist immer vor die Chef im Geschäft.", Weight: 40},
 		{Text: "Haben wir noch Peps da?", Weight: 50},
 		{Text: "Läuft bei uns. Ich mach nix, bin aber auch nicht billable.", Weight: 50},
+		{Text: "Was habt ihr heute gemacht? Ich hab gaar nix gemacht! Ich hab gar nix gemacht!", Weight: 50},
+		{Text: "Ich hab Polizei! Ich hab Polizei!", Weight: 50},
+		{Text: "Es gibt keine Experten! Keine Experten, außer John! Quanten-John!", Weight: 50},
+		{Text: "Bruder, muss los! Ab ins Wasser!", Weight: 50},
+		{Text: "IHR FILMT MICH INS GESICHT! DAS DÜRFEN SIE NICHT!", Weight: 50},
+		{Text: "Halt, Stopp! Es bleibt alles so, wie es ist!", Weight: 50},
+		{Text: "Unsere Schreibtische müssen verdichtet sein! Genaus wie die Kranplätze!", Weight: 50},
+		{Text: "Technik, die begeistert. Das bin ich!", Weight: 50},
+		{Text: "Arbeit?! Gönnt euch.", Weight: 50},
+		{Text: "Ich küss dein Auge Habibi! ", Weight: 50},
+		{Text: "DynamoDB?! Nein danke! Da ist die Tür!", Weight: 50},
+		{Text: "Einfach mal machen!", Weight: 50},
+		{Text: "Rüdiger keine Kapriolen!", Weight: 50},
+		{Text: "Schauen wir mal was wird. Was wird.", Weight: 50},
+		{Text: "Hey was machst du den hier? Das wolltest du wohl klauen?! ALARM!", Weight: 50},
+		{Text: "WOCHENENDE! SAUFEN!", Weight: 50},
+		{Text: "Was ist denn mit Thorsten los?", Weight: 50},
+		{Text: "ROOOOOOOOOBERT!!!", Weight: 50},
+		{Text: "Meine Mama hat gesagt ich darf Fortnite spielen!", Weight: 50},
+		{Text: "Was hast du denn da gekauft?! Coca Cola Light?? Ich wollte doch eine ZERROO!!", Weight: 50},
+		{Text: "Was guckst du? Schau weg!", Weight: 50},
+		{Text: "Lass mich in Ruhe!", Weight: 50},
+		{Text: "Still hier. Sus.", Weight: 50},
+		{Text: "Lügen darf man nicht sagen.", Weight: 50},
+		{Text: "Ich muss raus. Ich muss rauuuus!", Weight: 50},
+		{Text: "EGAL!", Weight: 50},
+		{Text: "Ich bin der Uwe, ich bin auch dabei.", Weight: 50},
+		{Text: "Warum liegt hier Stroh?", Weight: 50},
+		// {Text: "", Weight: 50},
 	}
 
 	// Adjust weights based on the time
@@ -59,13 +88,11 @@ func getWeightedRandomPhrase() string {
 		phrases[4].Weight = 0
 	}
 
-	// Calculate total weight
 	totalWeight := 0
 	for _, p := range phrases {
 		totalWeight += p.Weight
 	}
 
-	// Generate a random number and select a phrase
 	r := rand.Intn(totalWeight)
 	for _, p := range phrases {
 		r -= p.Weight
@@ -74,7 +101,7 @@ func getWeightedRandomPhrase() string {
 		}
 	}
 
-	return phrases[0].Text // Fallback to the default phrase
+	return phrases[0].Text
 }
 
 func say(piperClient *piper.PiperClient, text string) {
@@ -110,8 +137,6 @@ func main() {
 	}
 	defer myFish.Close()
 
-	// Initialize audio context at startup with standard CD quality settings
-	// This ensures the audio device is active and ready before first use
 	log.Println("Initializing audio context...")
 	var ready chan struct{}
 	otoCtx, ready, err = oto.NewContext(22050, 1, oto.FormatSignedInt16LE)
