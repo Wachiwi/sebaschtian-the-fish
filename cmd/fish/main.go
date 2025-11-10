@@ -161,6 +161,12 @@ func main() {
 
 	piperClient := piper.NewPiperClient("http://piper:5000")
 
+	say(piperClient, "Hallo Ich bins! Bin wieder da und ready!")
+	myFish.Lock()
+	myFish.StopBody()
+	myFish.StopMouth()
+	myFish.Unlock()
+
 	loc, err := time.LoadLocation("Europe/Berlin")
 	if err != nil {
 		log.Fatalf("Error loading location: %v", err)
