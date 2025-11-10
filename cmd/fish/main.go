@@ -42,6 +42,7 @@ func say(piperClient *piper.PiperClient, text string) {
 
 	player := otoCtx.NewPlayer(wavReader)
 	player.Play()
+	time.Sleep(1 * time.Second)
 	for player.IsPlaying() {
 		time.Sleep(100 * time.Millisecond)
 	}
