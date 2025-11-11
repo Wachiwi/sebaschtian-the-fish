@@ -4,10 +4,12 @@ import (
 	"embed"
 	"io/fs"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"path/filepath"
 	"text/template"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -51,8 +53,21 @@ func GetSoundFiles() []SoundFile {
 }
 
 func main() {
-	router := gin.Default()
+	// --- Authentication Setup ---
+	user := os.Getenv("SOUNDS_USER")
+	password := os.Getenv("SOUNDS_PASSWORD")
+	if user == "" || password == "" {
+		log.Fatal("SOUNDS_USER and SOUNDS_PASSWORD environment variables must be set")
+	}
+	authAccounts := gin.Accounts{
+		user: password,
+	}
 
+	router := gin.Default()
+	router.SetTrustedProxies([]string{"127.0.0.1"})
+
+	// --- Public Routes ---
+	// Static assets like the logo are public.
 	staticSubFS, err := fs.Sub(staticFS, "static")
 	if err != nil {
 		log.Fatalf("Failed to create static sub-filesystem: %v", err)
@@ -61,9 +76,35 @@ func main() {
 		c.FileFromFS(c.Param("filepath"), http.FS(staticSubFS))
 	})
 
-	router.Static("/sounds", "./sound-data")
+	// The API for the fish is public.
+	router.GET("/api/random-sound", func(c *gin.Context) {
+		soundFiles := GetSoundFiles()
+		if len(soundFiles) == 0 {
+			c.String(http.StatusNotFound, "No sound files available")
+			return
+		}
+		rand.Seed(time.Now().UnixNano())
+		randomSound := soundFiles[rand.Intn(len(soundFiles))]
+		filePath := filepath.Join("./sound-data", randomSound.Name)
+		contentType := "application/octet-stream"
+		ext := filepath.Ext(randomSound.Name)
+		if ext == ".wav" || ext == ".WAV" {
+			contentType = "audio/wav"
+		} else if ext == ".mp3" {
+			contentType = "audio/mpeg"
+		}
+		c.Header("Content-Type", contentType)
+		c.File(filePath)
+	})
 
-	router.GET("/", func(c *gin.Context) {
+	// --- Authenticated Routes ---
+	authorized := router.Group("/", gin.BasicAuth(authAccounts))
+
+	// The sound files themselves require authentication to play directly.
+	authorized.Static("/sounds", "./sound-data")
+
+	// The main UI requires authentication.
+	authorized.GET("/", func(c *gin.Context) {
 		soundFiles := GetSoundFiles()
 		tmpl := template.Must(template.ParseFS(templateFS, "templates/sounds.html"))
 		err := tmpl.Execute(c.Writer, gin.H{"soundFiles": soundFiles})
@@ -73,19 +114,18 @@ func main() {
 		}
 	})
 
-	router.POST("/upload", func(c *gin.Context) {
+	// Uploading files requires authentication.
+	authorized.POST("/upload", func(c *gin.Context) {
 		file, err := c.FormFile("soundFile")
 		if err != nil {
 			c.String(http.StatusBadRequest, "Bad request: %v", err)
 			return
 		}
-
 		dst := filepath.Join("./sound-data", file.Filename)
 		if err := c.SaveUploadedFile(file, dst); err != nil {
 			c.String(http.StatusInternalServerError, "Failed to save file: %v", err)
 			return
 		}
-
 		soundFiles := GetSoundFiles()
 		tmpl := template.Must(template.ParseFS(templateFS, "templates/sounds.html"))
 		err = tmpl.ExecuteTemplate(c.Writer, "sound-list", gin.H{"soundFiles": soundFiles})
