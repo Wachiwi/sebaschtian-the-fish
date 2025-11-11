@@ -5,7 +5,6 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"io"
 	"log"
 	"math/rand"
@@ -119,7 +118,7 @@ func getWeightedRandomPhrase() string {
 
 func playAudioWithAnimation(myFish *fish.Fish, pcmData []byte) {
 	if otoCtx == nil {
-		fmt.Println("audio context not initialized")
+		log.Println("audio context not initialized")
 		return
 	}
 
@@ -145,7 +144,7 @@ func playAudioWithAnimation(myFish *fish.Fish, pcmData []byte) {
 				break
 			}
 			if err != nil {
-				fmt.Println("Error reading audio for animation: %v", err)
+				log.Println("Error reading audio for animation: %v", err)
 				break
 			}
 
@@ -201,77 +200,86 @@ func playAudioWithAnimation(myFish *fish.Fish, pcmData []byte) {
 	}
 
 	if err := player.Close(); err != nil {
-		fmt.Println("failed to close player: %v", err)
+		log.Println("failed to close player: %v", err)
 	}
 }
 
 func say(myFish *fish.Fish, piperClient *piper.PiperClient, text string) {
-	fmt.Println("saying '%s'...", text)
+	log.Println("saying '%s'...", text)
 	wavData, err := piperClient.Synthesize(text)
 	if err != nil {
-		fmt.Println("failed to synthesize text: %v", err)
+		log.Println("failed to synthesize text: %v", err)
 		return
 	}
 
 	wavReader := wav.NewReader(bytes.NewReader(wavData))
 	pcmData, err := io.ReadAll(wavReader)
 	if err != nil {
-		fmt.Println("failed to read pcm data: %v", err)
+		log.Println("failed to read pcm data: %v", err)
 		return
 	}
 	playAudioWithAnimation(myFish, pcmData)
-	fmt.Println("finished saying '%s'.", text)
+	log.Println("finished saying '%s'.", text)
 }
 
 func sing(myFish *fish.Fish) {
 	soundDir := "/sound-data"
 	files, err := os.ReadDir(soundDir)
 	if err != nil {
-		fmt.Println("failed to read sound directory '%s': %v", soundDir, err)
+		log.Printf("failed to read sound directory '%s': %v", soundDir, err)
 		return
 	}
 
 	if len(files) == 0 {
-		fmt.Println("no sound files to sing, skipping.")
+		log.Println("no sound files to sing, skipping.")
 		return
 	}
 
 	randomFile := files[rand.Intn(len(files))]
 	filePath := filepath.Join(soundDir, randomFile.Name())
-	fmt.Println("singing '%s'...", randomFile.Name())
+	log.Printf("singing '%s'...", randomFile.Name())
 
 	wavData, err := os.ReadFile(filePath)
 	if err != nil {
-		fmt.Println("failed to read sound file '%s': %v", filePath, err)
+		log.Printf("failed to read sound file '%s': %v", filePath, err)
 		return
 	}
 
 	wavReader := wav.NewReader(bytes.NewReader(wavData))
+	format, err := wavReader.Format()
+	if err != nil {
+		log.Printf("failed to get wav format from '%s': %v", randomFile.Name(), err)
+		return
+	}
+	log.Printf("Attempting to play '%s' with format: Sample Rate=%d, Channels=%d, Bits per Sample=%d",
+		randomFile.Name(), format.SampleRate, format.NumChannels, format.BitsPerSample)
+
 	pcmData, err := io.ReadAll(wavReader)
 	if err != nil {
-		fmt.Println("failed to decode wav data from '%s': %v", randomFile.Name(), err)
+		log.Printf("failed to decode wav data from '%s': %v", randomFile.Name(), err)
 		return
 	}
 
 	playAudioWithAnimation(myFish, pcmData)
-	fmt.Println("finished singing '%s'.", randomFile.Name())
+	log.Printf("finished singing '%s'.", randomFile.Name())
 }
 
 func main() {
+	log.SetOutput(os.Stdout)
 	myFish, err := fish.NewFish("gpiochip0")
 	if err != nil {
-		fmt.Println("failed to initialize fish: %v", err)
+		log.Fatalf("failed to initialize fish: %v", err)
 	}
 	defer myFish.Close()
 
-	fmt.Println("Initializing audio context...")
+	log.Println("Initializing audio context...")
 	var ready chan struct{}
 	otoCtx, ready, err = oto.NewContext(22050, 1, oto.FormatSignedInt16LE)
 	if err != nil {
-		fmt.Println("failed to create oto context: %v", err)
+		log.Fatalf("failed to create oto context: %v", err)
 	}
 	<-ready
-	fmt.Println("Audio context ready")
+	log.Println("Audio context ready")
 
 	piperClient := piper.NewPiperClient("http://piper:5000")
 
@@ -283,7 +291,7 @@ func main() {
 
 	loc, err := time.LoadLocation("Europe/Berlin")
 	if err != nil {
-		fmt.Println("Error loading location: %v", err)
+		log.Fatalf("Error loading location: %v", err)
 	}
 
 	c := cron.New(
@@ -296,7 +304,7 @@ func main() {
 		action := rand.Intn(2) // 0 for say, 1 for sing
 
 		// --- Start Fish Animation ---
-		fmt.Println("Raising body...")
+		log.Println("Raising body...")
 		myFish.Lock()
 		if err := myFish.RaiseBody(); err != nil {
 			log.Printf("Error raising body: %v", err)
@@ -311,9 +319,8 @@ func main() {
 			sing(myFish)
 		}
 
-		// --- End Fish Animation ---
-		time.Sleep(1 * time.Second) // Small pause after audio
-		fmt.Println("Stopping body...")
+		time.Sleep(1 * time.Second)
+		log.Println("Stopping body...")
 		myFish.Lock()
 		if err := myFish.StopBody(); err != nil {
 			log.Printf("Error stopping body: %v", err)
@@ -321,7 +328,7 @@ func main() {
 		myFish.Unlock()
 		time.Sleep(1 * time.Second)
 
-		fmt.Println("Tail...")
+		log.Println("Tail...")
 		myFish.Lock()
 		if err := myFish.RaiseTail(); err != nil {
 			log.Printf("Error raising tail: %v", err)
@@ -329,7 +336,7 @@ func main() {
 		myFish.Unlock()
 		time.Sleep(1 * time.Second)
 
-		fmt.Println("Stopping tail...")
+		log.Println("Stopping tail...")
 		myFish.Lock()
 		if err := myFish.StopBody(); err != nil {
 			log.Printf("Error stopping tail: %v", err)
