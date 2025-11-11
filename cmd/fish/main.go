@@ -10,16 +10,16 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
+	"github.com/hajimehoshi/go-mp3"
 	"github.com/hajimehoshi/oto/v2"
 	"github.com/robfig/cron/v3"
 	"github.com/wachiwi/sebaschtian-the-fish/pkg/fish"
 	"github.com/wachiwi/sebaschtian-the-fish/pkg/piper"
 	"github.com/youpy/go-wav"
 )
-
-var otoCtx *oto.Context
 
 type Phrase struct {
 	Text   string
@@ -116,27 +116,28 @@ func getWeightedRandomPhrase() string {
 	return phrases[0].Text
 }
 
-func playAudioWithAnimation(myFish *fish.Fish, pcmData []byte) {
-	if otoCtx == nil {
-		log.Println("audio context not initialized")
+func playAudioWithAnimation(myFish *fish.Fish, pcmData []byte, sampleRate, channelCount int) {
+	format := oto.FormatSignedInt16LE
+	bitDepthInBytes := 2 // 16-bit audio
+
+	otoCtx, ready, err := oto.NewContext(sampleRate, channelCount, format)
+	if err != nil {
+		log.Printf("failed to create new oto context: %v", err)
 		return
 	}
+	<-ready
 
-	playbackReader := bytes.NewReader(pcmData)
-	analysisReader := bytes.NewReader(pcmData)
-
-	player := otoCtx.NewPlayer(playbackReader)
+	player := otoCtx.NewPlayer(bytes.NewReader(pcmData))
+	defer player.Close()
 	player.Play()
 
 	go func() {
-		const sampleRate = 22050
-		const bitDepth = 2
-		const channels = 1
 		const chunkDuration = 100 * time.Millisecond
 		const amplitudeThreshold = 1500
 		isMouthOpen := false
-		chunkSize := int(float64(sampleRate) * chunkDuration.Seconds() * float64(bitDepth*channels))
+		chunkSize := int(float64(sampleRate) * chunkDuration.Seconds() * float64(bitDepthInBytes*channelCount))
 		buffer := make([]byte, chunkSize)
+		analysisReader := bytes.NewReader(pcmData)
 
 		for {
 			n, err := io.ReadFull(analysisReader, buffer)
@@ -144,14 +145,14 @@ func playAudioWithAnimation(myFish *fish.Fish, pcmData []byte) {
 				break
 			}
 			if err != nil {
-				log.Println("Error reading audio for animation: %v", err)
+				log.Printf("Error reading audio for animation: %v", err)
 				break
 			}
 
 			var sum int64
 			var count int
-			for i := 0; i < n; i += 2 {
-				if i+1 >= n {
+			for i := 0; i < n; i += bitDepthInBytes * channelCount {
+				if i+(bitDepthInBytes*channelCount) > n {
 					break
 				}
 				sample := int16(binary.LittleEndian.Uint16(buffer[i : i+2]))
@@ -167,7 +168,6 @@ func playAudioWithAnimation(myFish *fish.Fish, pcmData []byte) {
 				time.Sleep(chunkDuration)
 				continue
 			}
-
 			avgAmplitude := sum / int64(count)
 
 			myFish.Lock()
@@ -198,88 +198,111 @@ func playAudioWithAnimation(myFish *fish.Fish, pcmData []byte) {
 	for player.IsPlaying() {
 		time.Sleep(100 * time.Millisecond)
 	}
-
-	if err := player.Close(); err != nil {
-		log.Println("failed to close player: %v", err)
-	}
 }
 
 func say(myFish *fish.Fish, piperClient *piper.PiperClient, text string) {
-	log.Println("saying '%s'...", text)
+	log.Printf("saying '%s'...", text)
 	wavData, err := piperClient.Synthesize(text)
 	if err != nil {
-		log.Println("failed to synthesize text: %v", err)
+		log.Printf("failed to synthesize text: %v", err)
 		return
 	}
 
 	wavReader := wav.NewReader(bytes.NewReader(wavData))
 	pcmData, err := io.ReadAll(wavReader)
 	if err != nil {
-		log.Println("failed to read pcm data: %v", err)
+		log.Printf("failed to read pcm data: %v", err)
 		return
 	}
-	playAudioWithAnimation(myFish, pcmData)
-	log.Println("finished saying '%s'.", text)
+	playAudioWithAnimation(myFish, pcmData, 22050, 1)
+	log.Printf("finished saying '%s'.", text)
 }
 
 func sing(myFish *fish.Fish) {
-	soundDir := "/sound-data"
-	files, err := os.ReadDir(soundDir)
+	soundDir := "/sounds-data"
+	allFiles, err := os.ReadDir(soundDir)
 	if err != nil {
 		log.Printf("failed to read sound directory '%s': %v", soundDir, err)
 		return
 	}
 
-	if len(files) == 0 {
-		log.Println("no sound files to sing, skipping.")
+	var audioFiles []os.DirEntry
+	for _, file := range allFiles {
+		ext := strings.ToLower(filepath.Ext(file.Name()))
+		if !file.IsDir() && (ext == ".wav" || ext == ".mp3") {
+			audioFiles = append(audioFiles, file)
+		}
+	}
+
+	if len(audioFiles) == 0 {
+		log.Println("no .wav or .mp3 files found to sing, skipping.")
 		return
 	}
 
-	randomFile := files[rand.Intn(len(files))]
+	randomFile := audioFiles[rand.Intn(len(audioFiles))]
 	filePath := filepath.Join(soundDir, randomFile.Name())
 	log.Printf("singing '%s'...", randomFile.Name())
 
-	wavData, err := os.ReadFile(filePath)
+	fileData, err := os.ReadFile(filePath)
 	if err != nil {
 		log.Printf("failed to read sound file '%s': %v", filePath, err)
 		return
 	}
 
-	wavReader := wav.NewReader(bytes.NewReader(wavData))
-	format, err := wavReader.Format()
-	if err != nil {
-		log.Printf("failed to get wav format from '%s': %v", randomFile.Name(), err)
-		return
-	}
-	log.Printf("Attempting to play '%s' with format: Sample Rate=%d, Channels=%d, Bits per Sample=%d",
-		randomFile.Name(), format.SampleRate, format.NumChannels, format.BitsPerSample)
+	var pcmData []byte
+	var sampleRate int
+	var channelCount int
 
-	pcmData, err := io.ReadAll(wavReader)
-	if err != nil {
-		log.Printf("failed to decode wav data from '%s': %v", randomFile.Name(), err)
-		return
+	switch strings.ToLower(filepath.Ext(randomFile.Name())) {
+	case ".wav":
+		wavReader := wav.NewReader(bytes.NewReader(fileData))
+		format, err := wavReader.Format()
+		if err != nil {
+			log.Printf("failed to get wav format from '%s': %v", randomFile.Name(), err)
+			return
+		}
+		wavReader = wav.NewReader(bytes.NewReader(fileData))
+		pcmData, err = io.ReadAll(wavReader)
+		if err != nil {
+			log.Printf("failed to decode wav data from '%s': %v", randomFile.Name(), err)
+			return
+		}
+		sampleRate = int(format.SampleRate)
+		channelCount = int(format.NumChannels)
+
+	case ".mp3":
+		decoder, err := mp3.NewDecoder(bytes.NewReader(fileData))
+		if err != nil {
+			log.Printf("failed to create mp3 decoder for '%s': %v", randomFile.Name(), err)
+			return
+		}
+		pcmData, err = io.ReadAll(decoder)
+		if err != nil {
+			log.Printf("failed to decode mp3 data from '%s': %v", randomFile.Name(), err)
+			return
+		}
+		sampleRate = decoder.SampleRate()
+		// go-mp3 always decodes to stereo.
+		channelCount = 2
 	}
 
-	playAudioWithAnimation(myFish, pcmData)
-	log.Printf("finished singing '%s'.", randomFile.Name())
+	if len(pcmData) > 0 {
+		playAudioWithAnimation(myFish, pcmData, sampleRate, channelCount)
+		log.Printf("finished singing '%s'.", randomFile.Name())
+	}
 }
 
 func main() {
-	log.SetOutput(os.Stdout)
+	rand.Seed(time.Now().UnixNano())
+
 	myFish, err := fish.NewFish("gpiochip0")
 	if err != nil {
 		log.Fatalf("failed to initialize fish: %v", err)
 	}
 	defer myFish.Close()
 
-	log.Println("Initializing audio context...")
-	var ready chan struct{}
-	otoCtx, ready, err = oto.NewContext(22050, 1, oto.FormatSignedInt16LE)
-	if err != nil {
-		log.Fatalf("failed to create oto context: %v", err)
-	}
-	<-ready
-	log.Println("Audio context ready")
+	// No longer need to initialize a global context.
+	log.Println("Audio system ready.")
 
 	piperClient := piper.NewPiperClient("http://piper:5000")
 
@@ -300,10 +323,8 @@ func main() {
 	)
 
 	c.AddFunc("* * * * *", func() {
-		// Randomly choose between saying a phrase and singing a song
-		action := rand.Intn(2) // 0 for say, 1 for sing
+		action := rand.Intn(2)
 
-		// --- Start Fish Animation ---
 		log.Println("Raising body...")
 		myFish.Lock()
 		if err := myFish.RaiseBody(); err != nil {
