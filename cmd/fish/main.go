@@ -119,7 +119,7 @@ func getWeightedRandomPhrase() string {
 
 func playAudioWithAnimation(myFish *fish.Fish, pcmData []byte) {
 	if otoCtx == nil {
-		log.Printf("audio context not initialized")
+		fmt.Println("audio context not initialized")
 		return
 	}
 
@@ -145,7 +145,7 @@ func playAudioWithAnimation(myFish *fish.Fish, pcmData []byte) {
 				break
 			}
 			if err != nil {
-				log.Printf("Error reading audio for animation: %v", err)
+				fmt.Println("Error reading audio for animation: %v", err)
 				break
 			}
 
@@ -189,6 +189,10 @@ func playAudioWithAnimation(myFish *fish.Fish, pcmData []byte) {
 			time.Sleep(1 * time.Second)
 			myFish.StopMouth()
 		}
+
+		myFish.StopBody()
+		myFish.StopMouth()
+
 		myFish.Unlock()
 	}()
 
@@ -197,77 +201,77 @@ func playAudioWithAnimation(myFish *fish.Fish, pcmData []byte) {
 	}
 
 	if err := player.Close(); err != nil {
-		log.Printf("failed to close player: %v", err)
+		fmt.Println("failed to close player: %v", err)
 	}
 }
 
 func say(myFish *fish.Fish, piperClient *piper.PiperClient, text string) {
-	log.Printf("saying '%s'...", text)
+	fmt.Println("saying '%s'...", text)
 	wavData, err := piperClient.Synthesize(text)
 	if err != nil {
-		log.Printf("failed to synthesize text: %v", err)
+		fmt.Println("failed to synthesize text: %v", err)
 		return
 	}
 
 	wavReader := wav.NewReader(bytes.NewReader(wavData))
 	pcmData, err := io.ReadAll(wavReader)
 	if err != nil {
-		log.Printf("failed to read pcm data: %v", err)
+		fmt.Println("failed to read pcm data: %v", err)
 		return
 	}
 	playAudioWithAnimation(myFish, pcmData)
-	log.Printf("finished saying '%s'.", text)
+	fmt.Println("finished saying '%s'.", text)
 }
 
 func sing(myFish *fish.Fish) {
 	soundDir := "/sound-data"
 	files, err := os.ReadDir(soundDir)
 	if err != nil {
-		log.Printf("failed to read sound directory '%s': %v", soundDir, err)
+		fmt.Println("failed to read sound directory '%s': %v", soundDir, err)
 		return
 	}
 
 	if len(files) == 0 {
-		log.Println("no sound files to sing, skipping.")
+		fmt.Println("no sound files to sing, skipping.")
 		return
 	}
 
 	randomFile := files[rand.Intn(len(files))]
 	filePath := filepath.Join(soundDir, randomFile.Name())
-	log.Printf("singing '%s'...", randomFile.Name())
+	fmt.Println("singing '%s'...", randomFile.Name())
 
 	wavData, err := os.ReadFile(filePath)
 	if err != nil {
-		log.Printf("failed to read sound file '%s': %v", filePath, err)
+		fmt.Println("failed to read sound file '%s': %v", filePath, err)
 		return
 	}
 
 	wavReader := wav.NewReader(bytes.NewReader(wavData))
 	pcmData, err := io.ReadAll(wavReader)
 	if err != nil {
-		log.Printf("failed to decode wav data from '%s': %v", randomFile.Name(), err)
+		fmt.Println("failed to decode wav data from '%s': %v", randomFile.Name(), err)
 		return
 	}
 
 	playAudioWithAnimation(myFish, pcmData)
-	log.Printf("finished singing '%s'.", randomFile.Name())
+	fmt.Println("finished singing '%s'.", randomFile.Name())
 }
 
 func main() {
 	myFish, err := fish.NewFish("gpiochip0")
 	if err != nil {
-		log.Fatalf("failed to initialize fish: %v", err)
+		fmt.Println("failed to initialize fish: %v", err)
 	}
 	defer myFish.Close()
 
-	log.Println("Initializing audio context...")
+	fmt.Println("Initializing audio context...")
 	var ready chan struct{}
 	otoCtx, ready, err = oto.NewContext(22050, 1, oto.FormatSignedInt16LE)
 	if err != nil {
-		log.Fatalf("failed to create oto context: %v", err)
+		fmt.Println("failed to create oto context: %v", err)
 	}
 	<-ready
-	log.Println("Audio context ready")
+	fmt.Println("Audio context ready")
 
 	piperClient := piper.NewPiperClient("http://piper:5000")
 
@@ -279,7 +283,7 @@ func main() {
 
 	loc, err := time.LoadLocation("Europe/Berlin")
 	if err != nil {
-		log.Fatalf("Error loading location: %v", err)
+		fmt.Println("Error loading location: %v", err)
 	}
 
 	c := cron.New(
