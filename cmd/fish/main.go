@@ -293,7 +293,7 @@ func sing(myFish *fish.Fish) {
 }
 
 func main() {
-	rand.Seed(time.Now().UnixNano())
+	log.SetOutput(os.Stdout)
 
 	myFish, err := fish.NewFish("gpiochip0")
 	if err != nil {
