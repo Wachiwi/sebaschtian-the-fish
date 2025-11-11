@@ -53,6 +53,7 @@ func GetSoundFiles() []SoundFile {
 }
 
 func main() {
+	gin.SetMode(gin.ReleaseMode)
 	// --- Authentication Setup ---
 	user := os.Getenv("SOUNDS_USER")
 	password := os.Getenv("SOUNDS_PASSWORD")
