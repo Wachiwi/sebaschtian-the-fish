@@ -219,7 +219,7 @@ func say(myFish *fish.Fish, piperClient *piper.PiperClient, text string) {
 }
 
 func sing(myFish *fish.Fish) {
-	soundDir := "/sounds-data"
+	soundDir := "/sound-data"
 	allFiles, err := os.ReadDir(soundDir)
 	if err != nil {
 		log.Printf("failed to read sound directory '%s': %v", soundDir, err)
