@@ -26,12 +26,14 @@ services:
       io.balena.features.dbus: '1'
     volumes:
       - sound-data:/sound-data
-  sounds:
+  sound:
     build:
       context: .
       target: sounds
     ports:
-      - "8080:8080"
+      - "80:80"
+    environment:
+      SOUNDS_PORT: 80
     volumes:
       - sound-data:/app/sound-data
 volumes:

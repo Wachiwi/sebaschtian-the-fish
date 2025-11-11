@@ -2,15 +2,16 @@ package main
 
 import (
 	"embed"
+	"fmt"
 	"io/fs"
 	"log"
-	"math/rand"
 	"net/http"
 	"os"
 	"path/filepath"
 	"text/template"
-	"time"
 
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 )
 
@@ -25,6 +26,25 @@ var templateFS embed.FS
 //go:embed static/*
 var staticFS embed.FS
 
+// authRequired is a middleware to check for a valid session.
+func authRequired(c *gin.Context) {
+	session := sessions.Default(c)
+	user := session.Get("user")
+	if user == nil {
+		// If the request is from HTMX, trigger a client-side redirect.
+		if c.GetHeader("HX-Request") == "true" {
+			c.Header("HX-Redirect", "/login")
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+		// Otherwise, do a standard server-side redirect.
+		c.Redirect(http.StatusFound, "/login")
+		c.Abort()
+		return
+	}
+	c.Next()
+}
+
 func GetSoundFiles() []SoundFile {
 	dataDir := "./sound-data"
 	files, err := os.ReadDir(dataDir)
@@ -32,7 +52,6 @@ func GetSoundFiles() []SoundFile {
 		if os.IsNotExist(err) {
 			if err := os.MkdirAll(dataDir, 0755); err != nil {
 				log.Printf("Failed to create data directory: %v", err)
-				return []SoundFile{}
 			}
 			return []SoundFile{}
 		}
@@ -54,90 +73,107 @@ func GetSoundFiles() []SoundFile {
 
 func main() {
 	gin.SetMode(gin.ReleaseMode)
-	// --- Authentication Setup ---
+	// --- Credentials and Session Setup ---
+	port := os.Getenv("SOUNDS_PORT")
+	if port == "" {
+		port = "8080"
+	}
+
 	user := os.Getenv("SOUNDS_USER")
 	password := os.Getenv("SOUNDS_PASSWORD")
-	if user == "" || password == "" {
-		log.Fatal("SOUNDS_USER and SOUNDS_PASSWORD environment variables must be set")
-	}
-	authAccounts := gin.Accounts{
-		user: password,
+	sessionSecret := os.Getenv("SOUNDS_SESSION_SECRET")
+	if user == "" || password == "" || sessionSecret == "" {
+		log.Fatal("SOUNDS_USER, SOUNDS_PASSWORD, and SOUNDS_SESSION_SECRET must be set")
 	}
 
 	router := gin.Default()
 	router.SetTrustedProxies([]string{"127.0.0.1"})
 
+	store := cookie.NewStore([]byte(sessionSecret))
+	store.Options(sessions.Options{
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   false, // Set to true in production with HTTPS
+		SameSite: http.SameSiteLaxMode,
+	})
+	router.Use(sessions.Sessions("sound_session", store))
+
 	// --- Public Routes ---
-	// Static assets like the logo are public.
-	staticSubFS, err := fs.Sub(staticFS, "static")
-	if err != nil {
-		log.Fatalf("Failed to create static sub-filesystem: %v", err)
-	}
+	staticSubFS, _ := fs.Sub(staticFS, "static")
 	router.GET("/static/*filepath", func(c *gin.Context) {
 		c.FileFromFS(c.Param("filepath"), http.FS(staticSubFS))
 	})
 
-	// The API for the fish is public.
-	router.GET("/api/random-sound", func(c *gin.Context) {
-		soundFiles := GetSoundFiles()
-		if len(soundFiles) == 0 {
-			c.String(http.StatusNotFound, "No sound files available")
+	// Login routes
+	router.GET("/login", func(c *gin.Context) {
+		tmpl := template.Must(template.ParseFS(templateFS, "templates/login.html"))
+		tmpl.Execute(c.Writer, nil)
+	})
+
+	router.POST("/login", func(c *gin.Context) {
+		session := sessions.Default(c)
+		formUser := c.PostForm("username")
+		formPassword := c.PostForm("password")
+
+		if formUser == user && formPassword == password {
+			session.Set("user", user)
+			if err := session.Save(); err != nil {
+				log.Printf("Failed to save session: %v", err)
+				c.String(http.StatusInternalServerError, "Failed to save session")
+				return
+			}
+			if c.GetHeader("HX-Request") == "true" {
+				c.Header("HX-Redirect", "/")
+				return
+			}
+			// Otherwise, do a standard server-side redirect.
+			c.Redirect(http.StatusFound, "/")
 			return
+		} else {
+			tmpl := template.Must(template.ParseFS(templateFS, "templates/login.html"))
+			tmpl.Execute(c.Writer, gin.H{"error": "Invalid credentials"})
 		}
-		rand.Seed(time.Now().UnixNano())
-		randomSound := soundFiles[rand.Intn(len(soundFiles))]
-		filePath := filepath.Join("./sound-data", randomSound.Name)
-		contentType := "application/octet-stream"
-		ext := filepath.Ext(randomSound.Name)
-		if ext == ".wav" || ext == ".WAV" {
-			contentType = "audio/wav"
-		} else if ext == ".mp3" {
-			contentType = "audio/mpeg"
-		}
-		c.Header("Content-Type", contentType)
-		c.File(filePath)
 	})
 
 	// --- Authenticated Routes ---
-	authorized := router.Group("/", gin.BasicAuth(authAccounts))
+	authorized := router.Group("/")
+	authorized.Use(authRequired)
+	{
+		authorized.Static("/sounds", "./sound-data")
 
-	// The sound files themselves require authentication to play directly.
-	authorized.Static("/sounds", "./sound-data")
+		authorized.GET("/", func(c *gin.Context) {
+			soundFiles := GetSoundFiles()
+			tmpl := template.Must(template.ParseFS(templateFS, "templates/sounds.html"))
+			err := tmpl.Execute(c.Writer, gin.H{"soundFiles": soundFiles})
+			if err != nil {
+				c.String(http.StatusInternalServerError, "Failed to render page")
+			}
+		})
 
-	// The main UI requires authentication.
-	authorized.GET("/", func(c *gin.Context) {
-		soundFiles := GetSoundFiles()
-		tmpl := template.Must(template.ParseFS(templateFS, "templates/sounds.html"))
-		err := tmpl.Execute(c.Writer, gin.H{"soundFiles": soundFiles})
-		if err != nil {
-			log.Printf("Template execution error: %v", err)
-			c.String(http.StatusInternalServerError, "Failed to render page")
-		}
-	})
+		authorized.POST("/upload", func(c *gin.Context) {
+			file, err := c.FormFile("soundFile")
+			if err != nil {
+				c.String(http.StatusBadRequest, "Bad request")
+				return
+			}
+			dst := filepath.Join("./sound-data", file.Filename)
+			if err := c.SaveUploadedFile(file, dst); err != nil {
+				c.String(http.StatusInternalServerError, "Failed to save file")
+				return
+			}
+			soundFiles := GetSoundFiles()
+			tmpl := template.Must(template.ParseFS(templateFS, "templates/sounds.html"))
+			tmpl.ExecuteTemplate(c.Writer, "sound-list", gin.H{"soundFiles": soundFiles})
+		})
 
-	// Uploading files requires authentication.
-	authorized.POST("/upload", func(c *gin.Context) {
-		file, err := c.FormFile("soundFile")
-		if err != nil {
-			c.String(http.StatusBadRequest, "Bad request: %v", err)
-			return
-		}
-		dst := filepath.Join("./sound-data", file.Filename)
-		if err := c.SaveUploadedFile(file, dst); err != nil {
-			c.String(http.StatusInternalServerError, "Failed to save file: %v", err)
-			return
-		}
-		soundFiles := GetSoundFiles()
-		tmpl := template.Must(template.ParseFS(templateFS, "templates/sounds.html"))
-		err = tmpl.ExecuteTemplate(c.Writer, "sound-list", gin.H{"soundFiles": soundFiles})
-		if err != nil {
-			log.Printf("Template fragment execution error: %v", err)
-			c.String(http.StatusInternalServerError, "Failed to render fragment")
-		}
-	})
-
-	log.Println("Server is running on http://localhost:8080")
-	if err := router.Run(":8080"); err != nil {
-		log.Fatalf("Failed to run server: %v", err)
+		authorized.GET("/logout", func(c *gin.Context) {
+			session := sessions.Default(c)
+			session.Clear()
+			session.Save()
+			c.Redirect(http.StatusFound, "/login")
+		})
 	}
+
+	log.Printf("Server is running on http://localhost:%s\n", port)
+	router.Run(fmt.Sprintf(":%s", port))
 }
