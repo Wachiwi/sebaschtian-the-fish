@@ -13,6 +13,8 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
+	"github.com/wachiwi/sebaschtian-the-fish/pkg/playlist"
+	"sort"
 )
 
 type SoundFile struct {
@@ -143,8 +145,31 @@ func main() {
 
 		authorized.GET("/", func(c *gin.Context) {
 			soundFiles := GetSoundFiles()
-			tmpl := template.Must(template.ParseFS(templateFS, "templates/sounds.html"))
-			err := tmpl.Execute(c.Writer, gin.H{"soundFiles": soundFiles})
+			playedItems, err := playlist.GetPlayedItems()
+			if err != nil {
+				log.Printf("Failed to get played items: %v", err)
+				playedItems = []playlist.PlayedItem{}
+			}
+
+			queueItems, err := playlist.GetQueueItems()
+			if err != nil {
+				log.Printf("Failed to get queue items: %v", err)
+				queueItems = []playlist.QueueItem{}
+			}
+
+			// Sort by timestamp descending
+			sort.Slice(playedItems, func(i, j int) bool {
+				return playedItems[i].Timestamp.After(playedItems[j].Timestamp)
+			})
+
+			tmpl := template.Must(template.New("sounds.html").Funcs(template.FuncMap{
+				"add": func(a, b int) int { return a + b },
+			}).ParseFS(templateFS, "templates/sounds.html"))
+			err = tmpl.Execute(c.Writer, gin.H{
+				"soundFiles":  soundFiles,
+				"playedItems": playedItems,
+				"queueItems":  queueItems,
+			})
 			if err != nil {
 				c.String(http.StatusInternalServerError, "Failed to render page")
 			}
@@ -164,6 +189,54 @@ func main() {
 			soundFiles := GetSoundFiles()
 			tmpl := template.Must(template.ParseFS(templateFS, "templates/sounds.html"))
 			tmpl.ExecuteTemplate(c.Writer, "sound-list", gin.H{"soundFiles": soundFiles})
+		})
+
+		authorized.GET("/queue", func(c *gin.Context) {
+			queueItems, err := playlist.GetQueueItems()
+			if err != nil {
+				log.Printf("Failed to get queue items: %v", err)
+				c.String(http.StatusInternalServerError, "Failed to get queue")
+				return
+			}
+
+			tmpl := template.Must(template.New("sounds.html").Funcs(template.FuncMap{
+				"add": func(a, b int) int { return a + b },
+			}).ParseFS(templateFS, "templates/sounds.html"))
+			tmpl.ExecuteTemplate(c.Writer, "queue-list", gin.H{"queueItems": queueItems})
+		})
+
+		authorized.POST("/play/:filename", func(c *gin.Context) {
+			filename := c.Param("filename")
+			if filename == "" {
+				c.String(http.StatusBadRequest, "Filename required")
+				return
+			}
+
+			// Add to queue
+			item := playlist.QueueItem{
+				Name: filename,
+				Type: "song",
+			}
+			if err := playlist.AddToQueue(item); err != nil {
+				log.Printf("Failed to add to queue: %v", err)
+				c.String(http.StatusInternalServerError, "Failed to queue playback")
+				return
+			}
+
+			log.Printf("Queued playback for: %s", filename)
+
+			// Return updated queue list
+			queueItems, err := playlist.GetQueueItems()
+			if err != nil {
+				log.Printf("Failed to get queue items: %v", err)
+				c.String(http.StatusInternalServerError, "Failed to get queue")
+				return
+			}
+
+			tmpl := template.Must(template.New("sounds.html").Funcs(template.FuncMap{
+				"add": func(a, b int) int { return a + b },
+			}).ParseFS(templateFS, "templates/sounds.html"))
+			tmpl.ExecuteTemplate(c.Writer, "queue-list", gin.H{"queueItems": queueItems})
 		})
 
 		authorized.GET("/logout", func(c *gin.Context) {

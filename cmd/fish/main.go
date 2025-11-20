@@ -18,6 +18,7 @@ import (
 	"github.com/robfig/cron/v3"
 	"github.com/wachiwi/sebaschtian-the-fish/pkg/fish"
 	"github.com/wachiwi/sebaschtian-the-fish/pkg/piper"
+	"github.com/wachiwi/sebaschtian-the-fish/pkg/playlist"
 	"github.com/youpy/go-wav"
 )
 
@@ -101,19 +102,70 @@ func getWeightedRandomPhrase() string {
 		phrases[6].Weight = 0
 	}
 
+	// Make a copy to avoid modifying the original slice with time-based weights
+	phrasesToConsider := make([]Phrase, len(phrases))
+	copy(phrasesToConsider, phrases)
+
+	playedItems, err := playlist.GetPlayedItems()
+	if err != nil {
+		log.Printf("Error getting played items: %v", err)
+	} else {
+		recentlyPlayed := make(map[string]bool)
+		cutoff := time.Now().Add(-1 * time.Hour)
+		for _, item := range playedItems {
+			if item.Type == "text" && item.Timestamp.After(cutoff) {
+				recentlyPlayed[item.Name] = true
+			}
+		}
+
+		for i, p := range phrasesToConsider {
+			if recentlyPlayed[p.Text] {
+				phrasesToConsider[i].Weight = 0
+			}
+		}
+	}
+
 	totalWeight := 0
-	for _, p := range phrases {
+	for _, p := range phrasesToConsider {
 		totalWeight += p.Weight
 	}
 
+	// If all eligible phrases have been played, reset to the original list
+	if totalWeight == 0 && len(phrases) > 0 {
+		log.Println("All phrases have been played recently. Resetting phrase playlist for this round.")
+		phrasesToConsider = phrases // Reset to the list with original time-based weights
+		totalWeight = 0
+		for _, p := range phrasesToConsider {
+			totalWeight += p.Weight
+		}
+	}
+
+	if totalWeight == 0 {
+		log.Println("No phrases to say after filtering and potential reset.")
+		return ""
+	}
+
 	r := rand.Intn(totalWeight)
-	for _, p := range phrases {
+	for _, p := range phrasesToConsider {
 		r -= p.Weight
 		if r < 0 {
+			item := playlist.PlayedItem{
+				Name:      p.Text,
+				Type:      "text",
+				Timestamp: time.Now(),
+			}
+			if err := playlist.AddPlayedItem(item, 1*time.Hour); err != nil {
+				log.Printf("Error adding played item: %v", err)
+			}
 			return p.Text
 		}
 	}
-	return phrases[0].Text
+
+	// Fallback, should ideally not be reached if totalWeight > 0
+	if len(phrases) > 0 {
+		return phrases[0].Text
+	}
+	return ""
 }
 
 func playAudioWithAnimation(myFish *fish.Fish, pcmData []byte, sampleRate, channelCount int) {
@@ -201,6 +253,10 @@ func playAudioWithAnimation(myFish *fish.Fish, pcmData []byte, sampleRate, chann
 }
 
 func say(myFish *fish.Fish, piperClient *piper.PiperClient, text string) {
+	if text == "" {
+		log.Println("nothing to say.")
+		return
+	}
 	log.Printf("saying '%s'...", text)
 	wavData, err := piperClient.Synthesize(text)
 	if err != nil {
@@ -216,6 +272,70 @@ func say(myFish *fish.Fish, piperClient *piper.PiperClient, text string) {
 	}
 	playAudioWithAnimation(myFish, pcmData, 22050, 1)
 	log.Printf("finished saying '%s'.", text)
+}
+
+func playSoundFile(myFish *fish.Fish, filename string) {
+	soundDir := "/sound-data"
+	filePath := filepath.Join(soundDir, filename)
+
+	log.Printf("playing '%s'...", filename)
+
+	// Add to played list
+	item := playlist.PlayedItem{
+		Name:      filename,
+		Type:      "song",
+		Timestamp: time.Now(),
+	}
+	if err := playlist.AddPlayedItem(item, 1*time.Hour); err != nil {
+		log.Printf("Error adding played item: %v", err)
+	}
+
+	fileData, err := os.ReadFile(filePath)
+	if err != nil {
+		log.Printf("failed to read sound file '%s': %v", filePath, err)
+		return
+	}
+
+	var pcmData []byte
+	var sampleRate int
+	var channelCount int
+
+	switch strings.ToLower(filepath.Ext(filename)) {
+	case ".wav":
+		wavReader := wav.NewReader(bytes.NewReader(fileData))
+		format, err := wavReader.Format()
+		if err != nil {
+			log.Printf("failed to get wav format from '%s': %v", filename, err)
+			return
+		}
+		wavReader = wav.NewReader(bytes.NewReader(fileData))
+		pcmData, err = io.ReadAll(wavReader)
+		if err != nil {
+			log.Printf("failed to decode wav data from '%s': %v", filename, err)
+			return
+		}
+		sampleRate = int(format.SampleRate)
+		channelCount = int(format.NumChannels)
+
+	case ".mp3":
+		decoder, err := mp3.NewDecoder(bytes.NewReader(fileData))
+		if err != nil {
+			log.Printf("failed to create mp3 decoder for '%s': %v", filename, err)
+			return
+		}
+		pcmData, err = io.ReadAll(decoder)
+		if err != nil {
+			log.Printf("failed to decode mp3 data from '%s': %v", filename, err)
+			return
+		}
+		sampleRate = decoder.SampleRate()
+		channelCount = 2
+	}
+
+	if len(pcmData) > 0 {
+		playAudioWithAnimation(myFish, pcmData, sampleRate, channelCount)
+		log.Printf("finished playing '%s'.", filename)
+	}
 }
 
 func sing(myFish *fish.Fish) {
@@ -234,62 +354,40 @@ func sing(myFish *fish.Fish) {
 		}
 	}
 
-	if len(audioFiles) == 0 {
+	var availableFiles []os.DirEntry
+	playedItems, err := playlist.GetPlayedItems()
+	if err != nil {
+		log.Printf("Error getting played items: %v", err)
+		availableFiles = audioFiles // Play from all if we can't read playlist
+	} else {
+		recentlyPlayed := make(map[string]bool)
+		cutoff := time.Now().Add(-1 * time.Hour)
+		for _, item := range playedItems {
+			if item.Type == "song" && item.Timestamp.After(cutoff) {
+				recentlyPlayed[item.Name] = true
+			}
+		}
+
+		for _, file := range audioFiles {
+			if !recentlyPlayed[file.Name()] {
+				availableFiles = append(availableFiles, file)
+			}
+		}
+	}
+
+	// If all songs have been played recently, reset the available list to all songs.
+	if len(availableFiles) == 0 && len(audioFiles) > 0 {
+		log.Println("All songs have been played recently. Resetting song playlist for this round.")
+		availableFiles = audioFiles
+	}
+
+	if len(availableFiles) == 0 {
 		log.Println("no .wav or .mp3 files found to sing, skipping.")
 		return
 	}
 
-	randomFile := audioFiles[rand.Intn(len(audioFiles))]
-	filePath := filepath.Join(soundDir, randomFile.Name())
-	log.Printf("singing '%s'...", randomFile.Name())
-
-	fileData, err := os.ReadFile(filePath)
-	if err != nil {
-		log.Printf("failed to read sound file '%s': %v", filePath, err)
-		return
-	}
-
-	var pcmData []byte
-	var sampleRate int
-	var channelCount int
-
-	switch strings.ToLower(filepath.Ext(randomFile.Name())) {
-	case ".wav":
-		wavReader := wav.NewReader(bytes.NewReader(fileData))
-		format, err := wavReader.Format()
-		if err != nil {
-			log.Printf("failed to get wav format from '%s': %v", randomFile.Name(), err)
-			return
-		}
-		wavReader = wav.NewReader(bytes.NewReader(fileData))
-		pcmData, err = io.ReadAll(wavReader)
-		if err != nil {
-			log.Printf("failed to decode wav data from '%s': %v", randomFile.Name(), err)
-			return
-		}
-		sampleRate = int(format.SampleRate)
-		channelCount = int(format.NumChannels)
-
-	case ".mp3":
-		decoder, err := mp3.NewDecoder(bytes.NewReader(fileData))
-		if err != nil {
-			log.Printf("failed to create mp3 decoder for '%s': %v", randomFile.Name(), err)
-			return
-		}
-		pcmData, err = io.ReadAll(decoder)
-		if err != nil {
-			log.Printf("failed to decode mp3 data from '%s': %v", randomFile.Name(), err)
-			return
-		}
-		sampleRate = decoder.SampleRate()
-		// go-mp3 always decodes to stereo.
-		channelCount = 2
-	}
-
-	if len(pcmData) > 0 {
-		playAudioWithAnimation(myFish, pcmData, sampleRate, channelCount)
-		log.Printf("finished singing '%s'.", randomFile.Name())
-	}
+	randomFile := availableFiles[rand.Intn(len(availableFiles))]
+	playSoundFile(myFish, randomFile.Name())
 }
 
 func main() {
@@ -323,8 +421,6 @@ func main() {
 	)
 
 	c.AddFunc("* * * * *", func() {
-		action := rand.Intn(2)
-
 		log.Println("Raising body...")
 		myFish.Lock()
 		if err := myFish.RaiseBody(); err != nil {
@@ -333,11 +429,28 @@ func main() {
 		myFish.Unlock()
 		time.Sleep(1 * time.Second)
 
-		if action == 0 {
-			phraseToSay := getWeightedRandomPhrase()
-			say(myFish, piperClient, phraseToSay)
+		// Check for queued items first
+		queueItem, err := playlist.GetNextQueueItem()
+		if err != nil {
+			log.Printf("Error checking queue: %v", err)
+		}
+
+		if queueItem != nil {
+			log.Printf("Playing queued item: %s (type: %s)", queueItem.Name, queueItem.Type)
+			if queueItem.Type == "song" {
+				playSoundFile(myFish, queueItem.Name)
+			} else if queueItem.Type == "text" {
+				say(myFish, piperClient, queueItem.Name)
+			}
 		} else {
-			sing(myFish)
+			// No queued items, do random action
+			action := rand.Intn(2)
+			if action == 0 {
+				phraseToSay := getWeightedRandomPhrase()
+				say(myFish, piperClient, phraseToSay)
+			} else {
+				sing(myFish)
+			}
 		}
 
 		time.Sleep(1 * time.Second)

@@ -40,21 +40,74 @@
         </form>
     </div>
 
-    <div class="bg-white p-6 rounded-lg shadow-md">
-        <h2 class="text-2xl font-semibold mb-4 text-cyan-950">Available Sounds</h2>
-        <div id="sound-list" class="space-y-4">
-            {{define "sound-list"}}
-                {{range .soundFiles}}
-                <div class="flex items-center justify-between p-3 bg-orange-100 rounded-lg">
-                    <span class="font-medium text-slate-700">{{ .Name }}</span>
-                    <audio controls src="{{ .Path }}" class="h-10"></audio>
+    <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-2xl font-semibold text-cyan-950">Playback Queue</h2>
+            <span class="text-sm text-slate-500">{{len .queueItems}} item(s) queued</span>
+        </div>
+        <div id="queue-list" class="space-y-2">
+            {{define "queue-list"}}
+                {{range $index, $item := .queueItems}}
+                <div class="flex items-center gap-3 p-2 bg-yellow-100 rounded-lg">
+                    <span class="text-lg font-bold text-yellow-700 bg-yellow-200 rounded-full w-8 h-8 flex items-center justify-center">{{ add $index 1 }}</span>
+                    <div class="flex-grow">
+                        <span class="font-medium text-slate-700 text-sm">{{ .Name }}</span>
+                        <span class="text-xs text-slate-500 block">{{ .Type }}</span>
+                    </div>
                 </div>
                 {{else}}
-                <p class="text-slate-700">No sounds uploaded yet.</p>
+                <div class="text-center py-4">
+                    <p class="text-slate-500 text-sm">Queue is empty</p>
+                    <p class="text-slate-400 text-xs mt-1">Click "Play on Fish" to add sounds to the queue</p>
+                </div>
                 {{end}}
             {{end}}
 
-            {{template "sound-list" .}}
+            {{template "queue-list" .}}
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <h2 class="text-2xl font-semibold mb-4 text-cyan-950">Available Sounds</h2>
+            <div id="sound-list" class="space-y-4">
+                {{define "sound-list"}}
+                    {{range .soundFiles}}
+                    <div class="flex flex-col gap-2 p-3 bg-orange-100 rounded-lg">
+                        <div class="flex items-center justify-between">
+                            <span class="font-medium text-slate-700">{{ .Name }}</span>
+                            <button hx-post="/play/{{ .Name }}" 
+                                    hx-target="#queue-list"
+                                    hx-swap="innerHTML"
+                                    class="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-1 px-3 rounded-full text-sm whitespace-nowrap">
+                                Play on Fish
+                            </button>
+                        </div>
+                        <audio controls src="{{ .Path }}" class="w-full h-10"></audio>
+                    </div>
+                    {{else}}
+                    <p class="text-slate-700">No sounds uploaded yet.</p>
+                    {{end}}
+                {{end}}
+
+                {{template "sound-list" .}}
+            </div>
+        </div>
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <h2 class="text-2xl font-semibold mb-4 text-cyan-950">Recently Played</h2>
+            <div id="played-list" class="space-y-2">
+                {{range .playedItems}}
+                <div class="flex items-center justify-between p-2 bg-sky-100 rounded-lg">
+                    <div>
+                        <span class="font-medium text-slate-700 text-sm">{{ .Name }}</span>
+                        <span class="text-xs text-slate-500 block">{{ .Type }}</span>
+                    </div>
+                    <span class="text-xs text-slate-500">{{ .Timestamp.Format "15:04:05" }}</span>
+                </div>
+                {{else}}
+                <p class="text-slate-700">No items played recently.</p>
+                {{end}}
+            </div>
         </div>
     </div>
 
