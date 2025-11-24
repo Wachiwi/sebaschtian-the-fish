@@ -1,11 +1,10 @@
-//go:build linux
+//go:build darwin
 
 package fish
 
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"io"
 	"log"
 	"os"
@@ -18,106 +17,44 @@ import (
 	"github.com/hajimehoshi/oto/v2"
 	"github.com/wachiwi/sebaschtian-the-fish/pkg/piper"
 	"github.com/wachiwi/sebaschtian-the-fish/pkg/playlist"
-	"github.com/warthog618/go-gpiocdev"
-	"github.com/warthog618/go-gpiocdev/device/rpi"
 	"github.com/youpy/go-wav"
 )
 
-// Motor represents a single DC motor controlled by an H-Bridge.
-type Motor struct {
-	enable *gpiocdev.Line
-	in1    *gpiocdev.Line
-	in2    *gpiocdev.Line
-}
+// Motor represents a mock motor for macOS (no GPIO).
+type Motor struct{}
 
-// Forward turns the motor in the forward direction.
+// Forward is a no-op on macOS.
 func (m *Motor) Forward() error {
-	if err := m.in1.SetValue(1); err != nil {
-		return err
-	}
-	if err := m.in2.SetValue(0); err != nil {
-		return err
-	}
-	return m.enable.SetValue(1)
+	log.Println("[MOCK] Motor forward")
+	return nil
 }
 
-// Reverse turns the motor in the reverse direction.
+// Reverse is a no-op on macOS.
 func (m *Motor) Reverse() error {
-	if err := m.in1.SetValue(0); err != nil {
-		return err
-	}
-	if err := m.in2.SetValue(1); err != nil {
-		return err
-	}
-	return m.enable.SetValue(1)
+	log.Println("[MOCK] Motor reverse")
+	return nil
 }
 
-// Stop halts the motor.
+// Stop is a no-op on macOS.
 func (m *Motor) Stop() error {
-	if err := m.in1.SetValue(0); err != nil {
-		return err
-	}
-	if err := m.in2.SetValue(0); err != nil {
-		return err
-	}
-	return m.enable.SetValue(0)
+	log.Println("[MOCK] Motor stop")
+	return nil
 }
 
-// Fish represents the fish with its controllable parts.
+// Fish represents the fish with its controllable parts (mock version for macOS).
 type Fish struct {
 	mu        sync.Mutex
-	chip      *gpiocdev.Chip
 	HeadMotor *Motor
 	BodyMotor *Motor
 }
 
-// NewFish initializes the GPIO pins and returns a new Fish object.
+// NewFish initializes a mock Fish object for macOS.
 func NewFish(chipName string) (*Fish, error) {
-	c, err := gpiocdev.NewChip(chipName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open chip: %w", err)
-	}
-
-	// Head motor pins
-	enableHeadPin, err := c.RequestLine(rpi.GPIO5, gpiocdev.AsOutput(0))
-	if err != nil {
-		return nil, err
-	}
-	in1Pin, err := c.RequestLine(rpi.GPIO13, gpiocdev.AsOutput(0))
-	if err != nil {
-		return nil, err
-	}
-	in2Pin, err := c.RequestLine(rpi.GPIO6, gpiocdev.AsOutput(0))
-	if err != nil {
-		return nil, err
-	}
-
-	// Body motor pins
-	enableBodyPin, err := c.RequestLine(rpi.GPIO12, gpiocdev.AsOutput(0))
-	if err != nil {
-		return nil, err
-	}
-	in3Pin, err := c.RequestLine(rpi.GPIO26, gpiocdev.AsOutput(0))
-	if err != nil {
-		return nil, err
-	}
-	in4Pin, err := c.RequestLine(rpi.GPIO19, gpiocdev.AsOutput(0))
-	if err != nil {
-		return nil, err
-	}
+	log.Println("[MOCK] Initializing fish without GPIO (Darwin/macOS)")
 
 	fish := &Fish{
-		chip: c,
-		HeadMotor: &Motor{
-			enable: enableHeadPin,
-			in1:    in1Pin,
-			in2:    in2Pin,
-		},
-		BodyMotor: &Motor{
-			enable: enableBodyPin,
-			in1:    in3Pin,
-			in2:    in4Pin,
-		},
+		HeadMotor: &Motor{},
+		BodyMotor: &Motor{},
 	}
 
 	return fish, nil
@@ -131,15 +68,13 @@ func (f *Fish) Unlock() {
 	f.mu.Unlock()
 }
 
-// Close releases all GPIO resources.
+// Close releases all resources (no-op on macOS).
 func (f *Fish) Close() {
-	f.HeadMotor.Stop()
-	f.BodyMotor.Stop()
-	f.chip.Close()
+	log.Println("[MOCK] Closing fish")
 }
 
 func (fish *Fish) PlaySoundFile(filename string) {
-	soundDir := "/sound-data"
+	soundDir := "./sound-data"
 	filePath := filepath.Join(soundDir, filename)
 
 	log.Printf("playing '%s'...", filename)
@@ -308,32 +243,32 @@ func (fish *Fish) PlayAudioWithAnimation(pcmData []byte, sampleRate, channelCoun
 	}
 }
 
-// OpenMouth moves the head motor to open the mouth.
+// OpenMouth moves the head motor to open the mouth (mock on macOS).
 func (f *Fish) OpenMouth() error {
 	return f.HeadMotor.Forward()
 }
 
-// CloseMouth moves the head motor to close the mouth.
+// CloseMouth moves the head motor to close the mouth (mock on macOS).
 func (f *Fish) CloseMouth() error {
 	return f.HeadMotor.Reverse()
 }
 
-// StopMouth stops the head motor.
+// StopMouth stops the head motor (mock on macOS).
 func (f *Fish) StopMouth() error {
 	return f.HeadMotor.Stop()
 }
 
-// RaiseBody moves the body motor to raise the body.
+// RaiseBody moves the body motor to raise the body (mock on macOS).
 func (f *Fish) RaiseBody() error {
 	return f.BodyMotor.Forward()
 }
 
-// RaiseTail moves the body motor to raise the tail.
+// RaiseTail moves the body motor to raise the tail (mock on macOS).
 func (f *Fish) RaiseTail() error {
 	return f.BodyMotor.Reverse()
 }
 
-// StopBody stops the body motor.
+// StopBody stops the body motor (mock on macOS).
 func (f *Fish) StopBody() error {
 	return f.BodyMotor.Stop()
 }

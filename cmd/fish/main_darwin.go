@@ -1,4 +1,4 @@
-//go:build linux
+//go:build darwin
 
 package main
 
@@ -15,17 +15,22 @@ import (
 func main() {
 	log.SetOutput(os.Stdout)
 
-	myFish, err := fish.NewFish("gpiochip0")
+	myFish, err := fish.NewFish("") // Empty string for chipName on macOS
 	if err != nil {
 		log.Fatalf("failed to initialize fish: %v", err)
 	}
 	defer myFish.Close()
 
-	log.Println("Audio system ready.")
+	log.Println("Audio system ready (macOS/Darwin mode - no GPIO).")
 
-	piperClient := piper.NewPiperClient("http://piper:5000")
+	// For macOS testing, you can either:
+	// 1. Comment out the piper client and Say() call (default)
+	// 2. Run a local piper server
+	// 3. Change the URL to a remote piper server
+	piperClient := piper.NewPiperClient("http://localhost:10200")
 
-	myFish.Say(piperClient, "Hallo Ich bins! Bin wieder da und ready!")
+	// Test audio without TTS
+	log.Println("Starting fish in macOS mode...")
 	myFish.Lock()
 	myFish.StopBody()
 	myFish.StopMouth()
@@ -41,8 +46,8 @@ func main() {
 		cron.WithChain(cron.SkipIfStillRunning(cron.DefaultLogger)),
 	)
 
-	soundDir := "/sound-data"
-	enableTTS := true
+	soundDir := "./sound-data"
+	enableTTS := true // Set to true if you have piper running
 
 	c.AddFunc("* * * * *", func() {
 		runFishCycle(myFish, piperClient, soundDir, enableTTS)

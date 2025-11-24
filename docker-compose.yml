@@ -1,12 +1,6 @@
 version: "2"
 
 services:
-  ollama:
-    ports:
-      - 11434:11434
-    image: ollama/ollama
-    volumes:
-      - ollama_data:/root/.ollama
   piper:
     build: piper
     ports:
@@ -23,7 +17,7 @@ services:
       - NET_ADMIN
     restart: on-failure
     labels:
-      io.balena.features.dbus: '1'
+      io.balena.features.dbus: "1"
     volumes:
       - sound-data:/sound-data
   sound:
