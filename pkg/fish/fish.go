@@ -228,7 +228,13 @@ func (fish *Fish) PlayAudioWithAnimation(pcmData []byte, sampleRate, channelCoun
 	format := oto.FormatSignedInt16LE
 	bitDepthInBytes := 2 // 16-bit audio
 
-	otoCtx, ready, err := oto.NewContext(sampleRate, channelCount, format)
+	op := &oto.NewContextOptions{}
+
+	op.SampleRate = sampleRate
+	op.ChannelCount = channelCount
+	op.Format = format
+
+	otoCtx, ready, err := oto.NewContext(op)
 	if err != nil {
 		log.Printf("failed to create new oto context: %v", err)
 		return
