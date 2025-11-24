@@ -13,8 +13,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ebitengine/oto/v3"
 	"github.com/hajimehoshi/go-mp3"
-	"github.com/hajimehoshi/oto/v2"
 	"github.com/wachiwi/sebaschtian-the-fish/pkg/piper"
 	"github.com/wachiwi/sebaschtian-the-fish/pkg/playlist"
 	"github.com/youpy/go-wav"
