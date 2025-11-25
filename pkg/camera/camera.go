@@ -12,13 +12,14 @@ import (
 
 // Camera represents a Raspberry Pi Camera Module v3
 type Camera struct {
-	mu          sync.RWMutex
-	latestFrame []byte
-	isStreaming bool
-	stopChan    chan struct{}
-	width       int
-	height      int
-	fps         int
+	mu             sync.RWMutex
+	latestFrame    []byte
+	isStreaming    bool
+	stopChan       chan struct{}
+	width          int
+	height         int
+	fps            int
+	loggedFallback bool // Track if we've logged the fallback message
 }
 
 // Config holds camera configuration
@@ -132,9 +133,18 @@ func (c *Camera) captureFrame() ([]byte, error) {
 	// - camera_rpi.go on linux/arm64 (Raspberry Pi Camera Module v3)
 	// - camera_darwin.go on macOS (built-in webcam via ffmpeg)
 	// - camera_other.go on other platforms (returns error)
-	if frame, err := c.captureFrameRPi(); err == nil {
+	frame, err := c.captureFrameRPi()
+	if err == nil {
 		return frame, nil
 	}
+
+	// Log the error (only once per camera instance to avoid spam)
+	c.mu.Lock()
+	if !c.loggedFallback {
+		log.Printf("Camera capture failed, using placeholder frames: %v", err)
+		c.loggedFallback = true
+	}
+	c.mu.Unlock()
 
 	// Fallback to placeholder for development/testing if camera not available
 	return c.generatePlaceholderFrame()

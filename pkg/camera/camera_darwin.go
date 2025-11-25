@@ -17,19 +17,25 @@ func (c *Camera) captureFrameRPi() ([]byte, error) {
 // captureFrameMacWebcam captures a frame from the default macOS webcam using ffmpeg
 // Requires ffmpeg to be installed: brew install ffmpeg
 func (c *Camera) captureFrameMacWebcam() ([]byte, error) {
-	// Use ffmpeg to capture a single frame from the default camera (0:0 = FaceTime camera)
+	// Use ffmpeg to capture a single frame from the default camera
 	// -f avfoundation: Use AVFoundation framework (macOS camera API)
+	// -framerate MUST be 30 for most Mac cameras (they don't support 15)
+	// -video_size and -framerate MUST come before -i
 	// -i "0": Default video device (usually FaceTime camera)
 	// -frames:v 1: Capture only 1 frame
 	// -f image2pipe: Output as image stream
 	// -vcodec mjpeg: Encode as JPEG
 	// pipe:1: Output to stdout
 
+	// Note: Most Mac cameras only support 15fps and 30fps.
+	// We use 30fps for capture even if c.fps is lower, then the server will throttle the stream
+	fps := 30
+
 	cmd := exec.Command(
 		"ffmpeg",
 		"-f", "avfoundation",
+		"-framerate", fmt.Sprintf("%d", fps),
 		"-video_size", fmt.Sprintf("%dx%d", c.width, c.height),
-		"-framerate", fmt.Sprintf("%d", c.fps),
 		"-i", "0", // Device 0 = default camera
 		"-frames:v", "1", // Capture single frame
 		"-f", "image2pipe", // Output as image
@@ -47,6 +53,10 @@ func (c *Camera) captureFrameMacWebcam() ([]byte, error) {
 
 	if err := cmd.Run(); err != nil {
 		return nil, fmt.Errorf("ffmpeg capture failed: %w, stderr: %s (install with: brew install ffmpeg)", err, stderr.String())
+	}
+
+	if stdout.Len() == 0 {
+		return nil, fmt.Errorf("ffmpeg returned empty frame, stderr: %s", stderr.String())
 	}
 
 	return stdout.Bytes(), nil

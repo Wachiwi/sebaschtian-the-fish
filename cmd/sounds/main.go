@@ -91,10 +91,12 @@ func main() {
 	}
 
 	// --- Camera Setup ---
+	// RPi Camera Module v3 specs: up to 2304x1296 @ 56fps or 1920x1080 @ 120fps
+	// Using 1920x1080 @ 60fps for high quality, smooth video
 	cam := camera.NewCamera(camera.Config{
-		Width:  640,
-		Height: 480,
-		FPS:    15,
+		Width:  1920,
+		Height: 1080,
+		FPS:    60,
 	})
 	if err := cam.Start(); err != nil {
 		log.Printf("Warning: Failed to start camera: %v", err)
@@ -279,7 +281,7 @@ func main() {
 			}
 
 			// Stream frames continuously
-			ticker := time.NewTicker(66 * time.Millisecond) // ~15 fps
+			ticker := time.NewTicker(16 * time.Millisecond) // ~60 fps
 			defer ticker.Stop()
 
 			for {
