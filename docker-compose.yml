@@ -30,6 +30,13 @@ services:
       SOUNDS_PORT: 80
     volumes:
       - sound-data:/app/sound-data
+    devices:
+      - /dev/vchiq:/dev/vchiq
+      - /dev/video0:/dev/video0
+      - /dev/video1:/dev/video1
+      - /dev/video10:/dev/video10
+      - /dev/video11:/dev/video11
+      - /dev/video12:/dev/video12
 volumes:
   ollama_data:
   sound-data:
