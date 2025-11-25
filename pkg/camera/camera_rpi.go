@@ -9,24 +9,45 @@ import (
 	"os/exec"
 )
 
-// captureFrameRPi captures a frame using libcamera-apps on Raspberry Pi
+// captureFrameRPi captures a frame using libcamera-apps/rpicam-apps on Raspberry Pi
 // This is optimized for Raspberry Pi Camera Module v3 with its complex ISP path
-// Uses libcamera-jpeg which properly handles the Module 3's ISP
+// Tries rpicam-jpeg first (new name), falls back to libcamera-jpeg (old name)
 func (c *Camera) captureFrameRPi() ([]byte, error) {
-	// Use libcamera-jpeg to capture a single frame
+	// Newer Raspberry Pi OS (Bookworm+) uses rpicam-* commands
+	// Older versions use libcamera-* commands
+	// Try both for maximum compatibility
+
+	// Try rpicam-jpeg first (newer)
+	frame, err := c.captureWithCommand("rpicam-jpeg")
+	if err == nil {
+		return frame, nil
+	}
+
+	// Fall back to libcamera-jpeg (older)
+	frame, err = c.captureWithCommand("libcamera-jpeg")
+	if err == nil {
+		return frame, nil
+	}
+
+	// Neither worked - provide helpful error
+	return nil, fmt.Errorf("camera capture failed: neither rpicam-jpeg nor libcamera-jpeg found. Install with: sudo apt install -y rpicam-apps (or libcamera-apps for older OS)")
+}
+
+// captureWithCommand captures a frame using the specified command
+func (c *Camera) captureWithCommand(cmdName string) ([]byte, error) {
+	// Use rpicam-jpeg/libcamera-jpeg to capture a single frame
 	// This is the most reliable method for Camera Module v3
-	// The camera's ISP (Image Signal Processor) requires libcamera-apps
+	// The camera's ISP (Image Signal Processor) requires these tools
 	// Standard V4L2 libraries struggle with the Module 3's ISP complexity
 
 	cmd := exec.Command(
-		"libcamera-jpeg",
+		cmdName,
 		"--width", fmt.Sprintf("%d", c.width),
 		"--height", fmt.Sprintf("%d", c.height),
 		"--timeout", "1", // 1ms timeout for quick capture
 		"--nopreview",   // No display window
 		"--output", "-", // Output to stdout
 		"--quality", "80", // JPEG quality (0-100)
-		"--encoding", "jpg", // Explicit JPEG encoding
 		// Module 3 specific optimizations
 		"--awb", "auto", // Auto white balance
 		"--metering", "average", // Average metering mode
@@ -38,9 +59,11 @@ func (c *Camera) captureFrameRPi() ([]byte, error) {
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		// If libcamera-jpeg fails, try to provide helpful error info
-		log.Printf("libcamera-jpeg error: %v, stderr: %s", err, stderr.String())
-		return nil, fmt.Errorf("libcamera-jpeg failed: %w (ensure libcamera-apps is installed)", err)
+		return nil, fmt.Errorf("%s failed: %w (stderr: %s)", cmdName, err, stderr.String())
+	}
+
+	if stdout.Len() == 0 {
+		return nil, fmt.Errorf("%s returned empty frame", cmdName)
 	}
 
 	return stdout.Bytes(), nil
