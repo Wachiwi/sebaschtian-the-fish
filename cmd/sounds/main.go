@@ -13,8 +13,10 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
+	"github.com/wachiwi/sebaschtian-the-fish/pkg/camera"
 	"github.com/wachiwi/sebaschtian-the-fish/pkg/playlist"
 	"sort"
+	"time"
 )
 
 type SoundFile struct {
@@ -87,6 +89,17 @@ func main() {
 	if user == "" || password == "" || sessionSecret == "" {
 		log.Fatal("SOUNDS_USER, SOUNDS_PASSWORD, and SOUNDS_SESSION_SECRET must be set")
 	}
+
+	// --- Camera Setup ---
+	cam := camera.NewCamera(camera.Config{
+		Width:  640,
+		Height: 480,
+		FPS:    15,
+	})
+	if err := cam.Start(); err != nil {
+		log.Printf("Warning: Failed to start camera: %v", err)
+	}
+	defer cam.Stop()
 
 	router := gin.Default()
 	router.SetTrustedProxies([]string{"127.0.0.1"})
@@ -244,6 +257,50 @@ func main() {
 			session.Clear()
 			session.Save()
 			c.Redirect(http.StatusFound, "/login")
+		})
+
+		// Camera stream endpoint - MJPEG stream
+		authorized.GET("/camera/stream", func(c *gin.Context) {
+			if !cam.IsStreaming() {
+				c.String(http.StatusServiceUnavailable, "Camera not available")
+				return
+			}
+
+			c.Header("Content-Type", "multipart/x-mixed-replace; boundary=frame")
+			c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
+			c.Header("Pragma", "no-cache")
+			c.Header("Expires", "0")
+
+			w := c.Writer
+			flusher, ok := w.(http.Flusher)
+			if !ok {
+				c.String(http.StatusInternalServerError, "Streaming not supported")
+				return
+			}
+
+			// Stream frames continuously
+			ticker := time.NewTicker(66 * time.Millisecond) // ~15 fps
+			defer ticker.Stop()
+
+			for {
+				select {
+				case <-c.Request.Context().Done():
+					return
+				case <-ticker.C:
+					frame := cam.GetFrame()
+					if frame == nil {
+						continue
+					}
+
+					// Write MJPEG frame
+					fmt.Fprintf(w, "--frame\r\n")
+					fmt.Fprintf(w, "Content-Type: image/jpeg\r\n")
+					fmt.Fprintf(w, "Content-Length: %d\r\n\r\n", len(frame))
+					w.Write(frame)
+					fmt.Fprintf(w, "\r\n")
+					flusher.Flush()
+				}
+			}
 		})
 	}
 
