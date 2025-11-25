@@ -3,6 +3,7 @@ package playlist
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 )
@@ -24,6 +25,12 @@ var (
 	queuePath = "./sound-data/queue.json"
 	queueMu   sync.Mutex
 )
+
+// ensureDir creates the directory if it doesn't exist
+func ensureDir(path string) error {
+	dir := filepath.Dir(path)
+	return os.MkdirAll(dir, 0755)
+}
 
 // GetPlayedItems reads the list of played items from the JSON file.
 func GetPlayedItems() ([]PlayedItem, error) {
@@ -90,6 +97,11 @@ func AddPlayedItem(item PlayedItem, retentionPeriod time.Duration) error {
 		return err
 	}
 
+	// Ensure directory exists
+	if err := ensureDir(filePath); err != nil {
+		return err
+	}
+
 	return os.WriteFile(filePath, newData, 0644)
 }
 
@@ -118,6 +130,11 @@ func AddToQueue(item QueueItem) error {
 	// Write back to file
 	newData, err := json.MarshalIndent(queue, "", "  ")
 	if err != nil {
+		return err
+	}
+
+	// Ensure directory exists
+	if err := ensureDir(queuePath); err != nil {
 		return err
 	}
 
@@ -157,6 +174,11 @@ func GetNextQueueItem() (*QueueItem, error) {
 	// Write remaining items back
 	newData, err := json.MarshalIndent(queue, "", "  ")
 	if err != nil {
+		return nil, err
+	}
+
+	// Ensure directory exists
+	if err := ensureDir(queuePath); err != nil {
 		return nil, err
 	}
 
