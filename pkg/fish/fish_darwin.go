@@ -5,6 +5,7 @@ package fish
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -46,15 +47,30 @@ type Fish struct {
 	mu        sync.Mutex
 	HeadMotor *Motor
 	BodyMotor *Motor
+	otoCtx    *oto.Context
 }
 
 // NewFish initializes a mock Fish object for macOS.
 func NewFish(chipName string) (*Fish, error) {
 	log.Println("[MOCK] Initializing fish without GPIO (Darwin/macOS)")
 
+	// Initialize oto context once for the lifetime of the Fish
+	op := &oto.NewContextOptions{
+		SampleRate:   44100, // Default sample rate
+		ChannelCount: 2,     // Default stereo
+		Format:       oto.FormatSignedInt16LE,
+	}
+
+	otoCtx, ready, err := oto.NewContext(op)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create oto context: %w", err)
+	}
+	<-ready
+
 	fish := &Fish{
 		HeadMotor: &Motor{},
 		BodyMotor: &Motor{},
+		otoCtx:    otoCtx,
 	}
 
 	return fish, nil
@@ -160,23 +176,16 @@ func (myFish *Fish) Say(piperClient *piper.PiperClient, text string) {
 }
 
 func (fish *Fish) PlayAudioWithAnimation(pcmData []byte, sampleRate, channelCount int) {
-	format := oto.FormatSignedInt16LE
 	bitDepthInBytes := 2 // 16-bit audio
 
-	op := &oto.NewContextOptions{}
-
-	op.SampleRate = sampleRate
-	op.ChannelCount = channelCount
-	op.Format = format
-
-	otoCtx, ready, err := oto.NewContext(op)
-	if err != nil {
-		log.Printf("failed to create new oto context: %v", err)
-		return
+	// Check if audio format matches the initialized context
+	if sampleRate != 44100 || channelCount != 2 {
+		// Need to resample or convert the audio to match the context
+		// For now, log a warning and use the context anyway
+		log.Printf("Warning: audio format mismatch (expected 44100Hz stereo, got %dHz %d channels)", sampleRate, channelCount)
 	}
-	<-ready
 
-	player := otoCtx.NewPlayer(bytes.NewReader(pcmData))
+	player := fish.otoCtx.NewPlayer(bytes.NewReader(pcmData))
 	defer player.Close()
 	player.Play()
 
