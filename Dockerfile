@@ -26,6 +26,10 @@ CMD ["./fish"]
 
 FROM debian:trixie AS sounds
 
+RUN apt-get update && \
+    apt-get install -y rpicam-apps && \
+    rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 COPY --from=base /dist/sounds /app/sounds
