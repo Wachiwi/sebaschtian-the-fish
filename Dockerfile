@@ -27,6 +27,10 @@ CMD ["./fish"]
 FROM debian:trixie AS sounds
 
 RUN apt-get update && \
+    apt-get install -y ca-certificates gnupg wget && \
+    wget -qO - https://archive.raspberrypi.com/debian/raspberrypi.gpg.key | gpg --dearmor -o /usr/share/keyrings/raspberrypi-archive-keyring.gpg && \
+    echo "deb [signed-by=/usr/share/keyrings/raspberrypi-archive-keyring.gpg] https://archive.raspberrypi.com/debian/ bookworm main" > /etc/apt/sources.list.d/raspberrypi.list && \
+    apt-get update && \
     apt-get install -y rpicam-apps && \
     rm -rf /var/lib/apt/lists/*
 
