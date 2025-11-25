@@ -148,6 +148,12 @@ func (fish *Fish) PlaySoundFile(filename string) {
 	}
 
 	if len(pcmData) > 0 {
+		// Convert audio to match oto context (44100Hz stereo)
+		if sampleRate != 44100 || channelCount != 2 {
+			pcmData = convertAudio(pcmData, sampleRate, channelCount, 44100, 2)
+			sampleRate = 44100
+			channelCount = 2
+		}
 		fish.PlayAudioWithAnimation(pcmData, sampleRate, channelCount)
 		log.Printf("finished playing '%s'.", filename)
 	}
@@ -171,19 +177,15 @@ func (myFish *Fish) Say(piperClient *piper.PiperClient, text string) {
 		log.Printf("failed to read pcm data: %v", err)
 		return
 	}
-	myFish.PlayAudioWithAnimation(pcmData, 22050, 1)
+
+	// Convert mono to stereo and resample from 22050Hz to 44100Hz
+	pcmData = convertAudio(pcmData, 22050, 1, 44100, 2)
+	myFish.PlayAudioWithAnimation(pcmData, 44100, 2)
 	log.Printf("finished saying '%s'.", text)
 }
 
 func (fish *Fish) PlayAudioWithAnimation(pcmData []byte, sampleRate, channelCount int) {
 	bitDepthInBytes := 2 // 16-bit audio
-
-	// Check if audio format matches the initialized context
-	if sampleRate != 44100 || channelCount != 2 {
-		// Need to resample or convert the audio to match the context
-		// For now, log a warning and use the context anyway
-		log.Printf("Warning: audio format mismatch (expected 44100Hz stereo, got %dHz %d channels)", sampleRate, channelCount)
-	}
 
 	player := fish.otoCtx.NewPlayer(bytes.NewReader(pcmData))
 	defer player.Close()
@@ -256,6 +258,64 @@ func (fish *Fish) PlayAudioWithAnimation(pcmData []byte, sampleRate, channelCoun
 	for player.IsPlaying() {
 		time.Sleep(100 * time.Millisecond)
 	}
+}
+
+// convertAudio converts audio from one format to another (sample rate and channel count)
+func convertAudio(pcmData []byte, fromRate, fromChannels, toRate, toChannels int) []byte {
+	// Convert bytes to int16 samples
+	sampleCount := len(pcmData) / 2
+	samples := make([]int16, sampleCount)
+	for i := 0; i < sampleCount; i++ {
+		samples[i] = int16(binary.LittleEndian.Uint16(pcmData[i*2 : i*2+2]))
+	}
+
+	// Step 1: Convert mono to stereo if needed
+	var stereoSamples []int16
+	if fromChannels == 1 && toChannels == 2 {
+		stereoSamples = make([]int16, sampleCount*2)
+		for i := 0; i < sampleCount; i++ {
+			stereoSamples[i*2] = samples[i]   // Left channel
+			stereoSamples[i*2+1] = samples[i] // Right channel (duplicate)
+		}
+	} else if fromChannels == 2 && toChannels == 2 {
+		stereoSamples = samples
+	} else {
+		// For other conversions, just use the samples as-is
+		stereoSamples = samples
+	}
+
+	// Step 2: Resample if needed
+	var resampledSamples []int16
+	if fromRate != toRate {
+		ratio := float64(toRate) / float64(fromRate)
+		newSampleCount := int(float64(len(stereoSamples)) * ratio)
+		resampledSamples = make([]int16, newSampleCount)
+
+		for i := 0; i < newSampleCount; i++ {
+			// Simple linear interpolation
+			srcPos := float64(i) / ratio
+			srcIdx := int(srcPos)
+
+			if srcIdx >= len(stereoSamples)-1 {
+				resampledSamples[i] = stereoSamples[len(stereoSamples)-1]
+			} else {
+				frac := srcPos - float64(srcIdx)
+				sample1 := float64(stereoSamples[srcIdx])
+				sample2 := float64(stereoSamples[srcIdx+1])
+				resampledSamples[i] = int16(sample1 + (sample2-sample1)*frac)
+			}
+		}
+	} else {
+		resampledSamples = stereoSamples
+	}
+
+	// Convert back to bytes
+	result := make([]byte, len(resampledSamples)*2)
+	for i, sample := range resampledSamples {
+		binary.LittleEndian.PutUint16(result[i*2:i*2+2], uint16(sample))
+	}
+
+	return result
 }
 
 // OpenMouth moves the head motor to open the mouth (mock on macOS).
