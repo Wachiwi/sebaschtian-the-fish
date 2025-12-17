@@ -11,6 +11,7 @@ RUN go mod download
 COPY . .
 RUN go build -v -o /dist/fish ./cmd/fish
 RUN go build -v -o /dist/sounds ./cmd/sounds
+RUN go build -v -o /dist/balena-monitor ./cmd/balena-monitor
 
 FROM debian:trixie AS fish
 
@@ -39,3 +40,15 @@ WORKDIR /app
 COPY --from=base /dist/sounds /app/sounds
 
 CMD ["./sounds"]
+
+FROM debian:trixie AS balena-monitor
+
+RUN apt-get update && \
+    apt-get install -y ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY --from=base /dist/balena-monitor /app/balena-monitor
+
+CMD ["./balena-monitor"]

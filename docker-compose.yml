@@ -46,6 +46,40 @@ services:
       - /dev/video22:/dev/video22
       - /dev/video23:/dev/video23
       - /dev/video31:/dev/video31
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.96.0
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./otel/config.yaml:/etc/otelcol-contrib/config.yaml
+      # Mount host filesystems for hostmetrics receiver
+      - /proc:/hostfs/proc:ro
+      - /sys:/hostfs/sys:ro
+      - /etc:/hostfs/etc:ro
+      # Mount docker socket for docker_stats receiver
+      # Note: On BalenaOS, the engine socket might be at /var/run/balena-engine.sock
+      # We map it to the standard docker location inside the container
+      - /var/run/balena-engine.sock:/var/run/docker.sock:ro
+    environment:
+      - HOST_PROC=/hostfs/proc
+      - HOST_SYS=/hostfs/sys
+      - HOST_ETC=/hostfs/etc
+    ports:
+      - "4317:4317" # OTLP gRPC
+      - "4318:4318" # OTLP HTTP
+    restart: always
+    privileged: true # Often needed for full access to host metrics
+
+  balena-monitor:
+    build:
+      context: .
+      target: balena-monitor
+    restart: on-failure
+    labels:
+      io.balena.features.supervisor-api: "1" # Allow access to Supervisor API
+    depends_on:
+      - otel-collector
+
 volumes:
   ollama_data:
   sound-data:
