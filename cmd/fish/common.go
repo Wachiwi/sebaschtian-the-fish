@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"math/rand"
 	"os"
@@ -11,6 +12,8 @@ import (
 	"github.com/wachiwi/sebaschtian-the-fish/pkg/fish"
 	"github.com/wachiwi/sebaschtian-the-fish/pkg/piper"
 	"github.com/wachiwi/sebaschtian-the-fish/pkg/playlist"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 type Phrase struct {
@@ -159,7 +162,7 @@ func getWeightedRandomPhrase() string {
 	return ""
 }
 
-func sing(myFish *fish.Fish, soundDir string) {
+func sing(ctx context.Context, myFish *fish.Fish, soundDir string) {
 	allFiles, err := os.ReadDir(soundDir)
 	if err != nil {
 		slog.Error("failed to read sound directory", "directory", soundDir, "error", err)
@@ -207,16 +210,20 @@ func sing(myFish *fish.Fish, soundDir string) {
 	}
 
 	randomFile := availableFiles[rand.Intn(len(availableFiles))]
-	if err := myFish.PlaySoundFile(randomFile.Name()); err != nil {
+	if err := myFish.PlaySoundFile(ctx, randomFile.Name()); err != nil {
 		slog.Error("Failed to play song", "file", randomFile.Name(), "error", err)
 	}
 }
 
 func runFishCycle(myFish *fish.Fish, piperClient *piper.PiperClient, soundDir string, enableTTS bool) {
+	ctx, span := otel.Tracer("fish-cycle").Start(context.Background(), "RunFishCycle")
+	defer span.End()
+
 	slog.Info("Raising body...")
 	myFish.Lock()
 	if err := myFish.RaiseBody(); err != nil {
 		slog.Error("Error raising body", "error", err)
+		span.RecordError(err)
 	}
 	myFish.Unlock()
 	time.Sleep(1 * time.Second)
@@ -225,19 +232,27 @@ func runFishCycle(myFish *fish.Fish, piperClient *piper.PiperClient, soundDir st
 	queueItem, err := playlist.GetNextQueueItem()
 	if err != nil {
 		slog.Error("Error checking queue", "error", err)
+		span.RecordError(err)
 	}
 
 	if queueItem != nil {
 		slog.Info("Playing queued item", "name", queueItem.Name, "type", queueItem.Type)
+		span.SetAttributes(
+			attribute.String("action.type", "queue"),
+			attribute.String("item.name", queueItem.Name),
+			attribute.String("item.type", queueItem.Type),
+		)
 		switch queueItem.Type {
 		case "song":
-			if err := myFish.PlaySoundFile(queueItem.Name); err != nil {
+			if err := myFish.PlaySoundFile(ctx, queueItem.Name); err != nil {
 				slog.Error("Failed to play sound file", "file", queueItem.Name, "error", err)
+				span.RecordError(err)
 			}
 		case "text":
 			if enableTTS {
-				if err := myFish.Say(piperClient, queueItem.Name); err != nil {
+				if err := myFish.Say(ctx, piperClient, queueItem.Name); err != nil {
 					slog.Error("Failed to say text", "text", queueItem.Name, "error", err)
+					span.RecordError(err)
 				}
 			} else {
 				slog.Info("Would say", "text", queueItem.Name)
@@ -248,15 +263,21 @@ func runFishCycle(myFish *fish.Fish, piperClient *piper.PiperClient, soundDir st
 		action := rand.Intn(2)
 		if action == 0 {
 			phraseToSay := getWeightedRandomPhrase()
+			span.SetAttributes(
+				attribute.String("action.type", "random_phrase"),
+				attribute.String("phrase", phraseToSay),
+			)
 			if enableTTS {
-				if err := myFish.Say(piperClient, phraseToSay); err != nil {
+				if err := myFish.Say(ctx, piperClient, phraseToSay); err != nil {
 					slog.Error("Failed to say phrase", "text", phraseToSay, "error", err)
+					span.RecordError(err)
 				}
 			} else {
 				slog.Info("Would say", "text", phraseToSay)
 			}
 		} else {
-			sing(myFish, soundDir)
+			span.SetAttributes(attribute.String("action.type", "random_song"))
+			sing(ctx, myFish, soundDir)
 		}
 	}
 

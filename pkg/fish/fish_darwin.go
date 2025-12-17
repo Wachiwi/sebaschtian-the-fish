@@ -4,6 +4,7 @@ package fish
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -19,6 +20,8 @@ import (
 	"github.com/wachiwi/sebaschtian-the-fish/pkg/piper"
 	"github.com/wachiwi/sebaschtian-the-fish/pkg/playlist"
 	"github.com/youpy/go-wav"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 // Motor represents a mock motor for macOS (no GPIO).
@@ -91,7 +94,11 @@ func (f *Fish) Close() {
 
 // PlaySoundFile plays a sound file and animates the fish.
 // It returns an error if the file cannot be read, decoded, or played.
-func (fish *Fish) PlaySoundFile(filename string) error {
+func (fish *Fish) PlaySoundFile(ctx context.Context, filename string) error {
+	ctx, span := otel.Tracer("fish").Start(ctx, "PlaySoundFile")
+	defer span.End()
+	span.SetAttributes(attribute.String("filename", filename))
+
 	soundDir := "./sound-data"
 	filePath := filepath.Join(soundDir, filename)
 
@@ -105,12 +112,15 @@ func (fish *Fish) PlaySoundFile(filename string) error {
 	}
 	if err := playlist.AddPlayedItem(item, 1*time.Hour); err != nil {
 		slog.Error("Error adding played item", "error", err)
+		span.RecordError(err)
 		// Non-fatal error, continue
 	}
 
 	fileData, err := os.ReadFile(filePath)
 	if err != nil {
-		return fmt.Errorf("failed to read sound file '%s': %w", filePath, err)
+		err = fmt.Errorf("failed to read sound file '%s': %w", filePath, err)
+		span.RecordError(err)
+		return err
 	}
 
 	var pcmData []byte
@@ -122,12 +132,16 @@ func (fish *Fish) PlaySoundFile(filename string) error {
 		wavReader := wav.NewReader(bytes.NewReader(fileData))
 		format, err := wavReader.Format()
 		if err != nil {
-			return fmt.Errorf("failed to get wav format from '%s': %w", filename, err)
+			err = fmt.Errorf("failed to get wav format from '%s': %w", filename, err)
+			span.RecordError(err)
+			return err
 		}
 		wavReader = wav.NewReader(bytes.NewReader(fileData))
 		pcmData, err = io.ReadAll(wavReader)
 		if err != nil {
-			return fmt.Errorf("failed to decode wav data from '%s': %w", filename, err)
+			err = fmt.Errorf("failed to decode wav data from '%s': %w", filename, err)
+			span.RecordError(err)
+			return err
 		}
 		sampleRate = int(format.SampleRate)
 		channelCount = int(format.NumChannels)
@@ -135,11 +149,15 @@ func (fish *Fish) PlaySoundFile(filename string) error {
 	case ".mp3":
 		decoder, err := mp3.NewDecoder(bytes.NewReader(fileData))
 		if err != nil {
-			return fmt.Errorf("failed to create mp3 decoder for '%s': %w", filename, err)
+			err = fmt.Errorf("failed to create mp3 decoder for '%s': %w", filename, err)
+			span.RecordError(err)
+			return err
 		}
 		pcmData, err = io.ReadAll(decoder)
 		if err != nil {
-			return fmt.Errorf("failed to decode mp3 data from '%s': %w", filename, err)
+			err = fmt.Errorf("failed to decode mp3 data from '%s': %w", filename, err)
+			span.RecordError(err)
+			return err
 		}
 		sampleRate = decoder.SampleRate()
 		channelCount = 2
@@ -152,8 +170,10 @@ func (fish *Fish) PlaySoundFile(filename string) error {
 			sampleRate = 44100
 			channelCount = 2
 		}
-		if err := fish.PlayAudioWithAnimation(pcmData, sampleRate, channelCount); err != nil {
-			return fmt.Errorf("failed to play audio: %w", err)
+		if err := fish.PlayAudioWithAnimation(ctx, pcmData, sampleRate, channelCount); err != nil {
+			err = fmt.Errorf("failed to play audio: %w", err)
+			span.RecordError(err)
+			return err
 		}
 		slog.Info("finished playing", "filename", filename)
 	}
@@ -162,7 +182,11 @@ func (fish *Fish) PlaySoundFile(filename string) error {
 
 // Say synthesizes text and plays it while animating the fish.
 // It returns an error if synthesis or playback fails.
-func (myFish *Fish) Say(piperClient *piper.PiperClient, text string) error {
+func (myFish *Fish) Say(ctx context.Context, piperClient *piper.PiperClient, text string) error {
+	ctx, span := otel.Tracer("fish").Start(ctx, "Say")
+	defer span.End()
+	span.SetAttributes(attribute.String("text_length", fmt.Sprintf("%d", len(text))))
+
 	if text == "" {
 		slog.Info("nothing to say.")
 		return nil
@@ -170,19 +194,25 @@ func (myFish *Fish) Say(piperClient *piper.PiperClient, text string) error {
 	slog.Info("saying", "text", text)
 	wavData, err := piperClient.Synthesize(text)
 	if err != nil {
-		return fmt.Errorf("failed to synthesize text: %w", err)
+		err = fmt.Errorf("failed to synthesize text: %w", err)
+		span.RecordError(err)
+		return err
 	}
 
 	wavReader := wav.NewReader(bytes.NewReader(wavData))
 	pcmData, err := io.ReadAll(wavReader)
 	if err != nil {
-		return fmt.Errorf("failed to read pcm data: %w", err)
+		err = fmt.Errorf("failed to read pcm data: %w", err)
+		span.RecordError(err)
+		return err
 	}
 
 	// Convert mono to stereo and resample from 22050Hz to 44100Hz
 	pcmData = convertAudio(pcmData, 22050, 1, 44100, 2)
-	if err := myFish.PlayAudioWithAnimation(pcmData, 44100, 2); err != nil {
-		return fmt.Errorf("failed to play audio: %w", err)
+	if err := myFish.PlayAudioWithAnimation(ctx, pcmData, 44100, 2); err != nil {
+		err = fmt.Errorf("failed to play audio: %w", err)
+		span.RecordError(err)
+		return err
 	}
 	slog.Info("finished saying", "text", text)
 	return nil
@@ -190,7 +220,10 @@ func (myFish *Fish) Say(piperClient *piper.PiperClient, text string) error {
 
 // PlayAudioWithAnimation plays audio and animates the mouth.
 // It implements a timeout to prevent hanging if the audio player gets stuck.
-func (fish *Fish) PlayAudioWithAnimation(pcmData []byte, sampleRate, channelCount int) error {
+func (fish *Fish) PlayAudioWithAnimation(ctx context.Context, pcmData []byte, sampleRate, channelCount int) error {
+	_, span := otel.Tracer("fish").Start(ctx, "PlayAudioWithAnimation")
+	defer span.End()
+
 	bitDepthInBytes := 2 // 16-bit audio
 
 	// Calculate approximate duration for timeout

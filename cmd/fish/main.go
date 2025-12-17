@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"time"
 
@@ -10,10 +11,24 @@ import (
 	"github.com/wachiwi/sebaschtian-the-fish/pkg/fish"
 	"github.com/wachiwi/sebaschtian-the-fish/pkg/logger"
 	"github.com/wachiwi/sebaschtian-the-fish/pkg/piper"
+	"github.com/wachiwi/sebaschtian-the-fish/pkg/telemetry"
 )
 
 func main() {
 	logger.Setup()
+
+	// Initialize Telemetry
+	ctx := context.Background()
+	shutdown, err := telemetry.Setup(ctx, "sebaschtian-fish")
+	if err != nil {
+		slog.Error("Failed to setup telemetry", "error", err)
+	} else {
+		defer func() {
+			if err := shutdown(context.Background()); err != nil {
+				slog.Error("Error shutting down telemetry", "error", err)
+			}
+		}()
+	}
 
 	myFish, err := fish.NewFish("gpiochip0")
 	if err != nil {
