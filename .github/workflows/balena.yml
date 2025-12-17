@@ -1,11 +1,44 @@
-name: Balena image build and deploy
+name: CI/CD
 
 on:
   push:
     branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 
 jobs:
-  balena_cloud_build:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.24.0'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libgpiod-dev
+
+      - name: Build
+        run: |
+          go build -v ./cmd/fish
+          go build -v ./cmd/sounds
+          go build -v ./cmd/balena-monitor
+
+      - name: Test
+        run: go test -v ./...
+
+  deploy:
+    needs: test
+    # Only run deploy if:
+    # 1. Tests passed (needs: test)
+    # 2. It is a push event (not a pull_request)
+    # 3. The branch is main (refs/heads/main)
+    # This covers direct pushes to main AND merged PRs.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
