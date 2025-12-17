@@ -40,7 +40,9 @@ func main() {
 
 	piperClient := piper.NewPiperClient("http://piper:5000")
 
-	myFish.Say(piperClient, "Hallo Ich bins! Bin wieder da und ready!")
+	if err := myFish.Say(context.Background(), piperClient, "Hallo Ich bins! Bin wieder da und ready!"); err != nil {
+		slog.Error("Failed to say greeting", "error", err)
+	}
 	myFish.Lock()
 	myFish.StopBody()
 	myFish.StopMouth()
