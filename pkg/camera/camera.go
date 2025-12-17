@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"image"
 	"image/jpeg"
-	"log"
+	"log/slog"
 	"sync"
 	"time"
 )
@@ -60,7 +60,7 @@ func (c *Camera) Start() error {
 	c.mu.Unlock()
 
 	go c.captureLoop()
-	log.Printf("Camera started: %dx%d @ %d fps", c.width, c.height, c.fps)
+	slog.Info("Camera started", "width", c.width, "height", c.height, "fps", c.fps)
 	return nil
 }
 
@@ -75,7 +75,7 @@ func (c *Camera) Stop() {
 
 	c.isStreaming = false
 	close(c.stopChan)
-	log.Println("Camera stopped")
+	slog.Info("Camera stopped")
 }
 
 // GetFrame returns the latest captured frame as JPEG bytes
@@ -112,7 +112,7 @@ func (c *Camera) captureLoop() {
 		case <-ticker.C:
 			frame, err := c.captureFrame()
 			if err != nil {
-				log.Printf("Error capturing frame: %v", err)
+				slog.Error("Error capturing frame", "error", err)
 				continue
 			}
 
@@ -141,7 +141,7 @@ func (c *Camera) captureFrame() ([]byte, error) {
 	// Log the error (only once per camera instance to avoid spam)
 	c.mu.Lock()
 	if !c.loggedFallback {
-		log.Printf("Camera capture failed, using placeholder frames: %v", err)
+		slog.Warn("Camera capture failed, using placeholder frames", "error", err)
 		c.loggedFallback = true
 	}
 	c.mu.Unlock()

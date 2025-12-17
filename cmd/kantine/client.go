@@ -3,16 +3,20 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 
 	"github.com/wachiwi/sebaschtian-the-fish/pkg/kantine"
+	"github.com/wachiwi/sebaschtian-the-fish/pkg/logger"
 )
 
 func main() {
-	menu := kantine.Fetch()
+	logger.Setup()
+	menu, err := kantine.Fetch()
+	if err != nil {
+		logger.Fatal("Failed to fetch menu", "error", err)
+	}
 	jsonData, err := json.MarshalIndent(menu, "", "  ")
 	if err != nil {
-		log.Fatalf("Error marshalling to JSON: %v", err)
+		logger.Fatal("Error marshalling to JSON", "error", err)
 	}
 	fmt.Println(string(jsonData))
 }

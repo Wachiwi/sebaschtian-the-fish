@@ -5,7 +5,7 @@ package camera
 import (
 	"bytes"
 	"fmt"
-	"log"
+	"log/slog"
 	"os/exec"
 )
 
@@ -99,6 +99,6 @@ func (c *Camera) startLibcameraVidStream() error {
 	// This would need pipe handling to read continuous MJPEG stream
 	// Left as future optimization - current frame-by-frame approach works well
 
-	log.Printf("Note: libcamera-vid streaming available for future optimization")
+	slog.Info("Note: libcamera-vid streaming available for future optimization")
 	return cmd.Start()
 }

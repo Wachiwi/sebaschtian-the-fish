@@ -7,7 +7,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -26,19 +26,19 @@ type Motor struct{}
 
 // Forward is a no-op on macOS.
 func (m *Motor) Forward() error {
-	log.Println("[MOCK] Motor forward")
+	slog.Info("[MOCK] Motor forward")
 	return nil
 }
 
 // Reverse is a no-op on macOS.
 func (m *Motor) Reverse() error {
-	log.Println("[MOCK] Motor reverse")
+	slog.Info("[MOCK] Motor reverse")
 	return nil
 }
 
 // Stop is a no-op on macOS.
 func (m *Motor) Stop() error {
-	log.Println("[MOCK] Motor stop")
+	slog.Info("[MOCK] Motor stop")
 	return nil
 }
 
@@ -52,7 +52,7 @@ type Fish struct {
 
 // NewFish initializes a mock Fish object for macOS.
 func NewFish(chipName string) (*Fish, error) {
-	log.Println("[MOCK] Initializing fish without GPIO (Darwin/macOS)")
+	slog.Info("[MOCK] Initializing fish without GPIO (Darwin/macOS)")
 
 	// Initialize oto context once for the lifetime of the Fish
 	op := &oto.NewContextOptions{
@@ -86,14 +86,14 @@ func (f *Fish) Unlock() {
 
 // Close releases all resources (no-op on macOS).
 func (f *Fish) Close() {
-	log.Println("[MOCK] Closing fish")
+	slog.Info("[MOCK] Closing fish")
 }
 
 func (fish *Fish) PlaySoundFile(filename string) {
 	soundDir := "./sound-data"
 	filePath := filepath.Join(soundDir, filename)
 
-	log.Printf("playing '%s'...", filename)
+	slog.Info("playing", "filename", filename)
 
 	// Add to played list
 	item := playlist.PlayedItem{
@@ -102,12 +102,12 @@ func (fish *Fish) PlaySoundFile(filename string) {
 		Timestamp: time.Now(),
 	}
 	if err := playlist.AddPlayedItem(item, 1*time.Hour); err != nil {
-		log.Printf("Error adding played item: %v", err)
+		slog.Error("Error adding played item", "error", err)
 	}
 
 	fileData, err := os.ReadFile(filePath)
 	if err != nil {
-		log.Printf("failed to read sound file '%s': %v", filePath, err)
+		slog.Error("failed to read sound file", "file", filePath, "error", err)
 		return
 	}
 
@@ -120,13 +120,13 @@ func (fish *Fish) PlaySoundFile(filename string) {
 		wavReader := wav.NewReader(bytes.NewReader(fileData))
 		format, err := wavReader.Format()
 		if err != nil {
-			log.Printf("failed to get wav format from '%s': %v", filename, err)
+			slog.Error("failed to get wav format", "file", filename, "error", err)
 			return
 		}
 		wavReader = wav.NewReader(bytes.NewReader(fileData))
 		pcmData, err = io.ReadAll(wavReader)
 		if err != nil {
-			log.Printf("failed to decode wav data from '%s': %v", filename, err)
+			slog.Error("failed to decode wav data", "file", filename, "error", err)
 			return
 		}
 		sampleRate = int(format.SampleRate)
@@ -135,12 +135,12 @@ func (fish *Fish) PlaySoundFile(filename string) {
 	case ".mp3":
 		decoder, err := mp3.NewDecoder(bytes.NewReader(fileData))
 		if err != nil {
-			log.Printf("failed to create mp3 decoder for '%s': %v", filename, err)
+			slog.Error("failed to create mp3 decoder", "file", filename, "error", err)
 			return
 		}
 		pcmData, err = io.ReadAll(decoder)
 		if err != nil {
-			log.Printf("failed to decode mp3 data from '%s': %v", filename, err)
+			slog.Error("failed to decode mp3 data", "file", filename, "error", err)
 			return
 		}
 		sampleRate = decoder.SampleRate()
@@ -155,33 +155,33 @@ func (fish *Fish) PlaySoundFile(filename string) {
 			channelCount = 2
 		}
 		fish.PlayAudioWithAnimation(pcmData, sampleRate, channelCount)
-		log.Printf("finished playing '%s'.", filename)
+		slog.Info("finished playing", "filename", filename)
 	}
 }
 
 func (myFish *Fish) Say(piperClient *piper.PiperClient, text string) {
 	if text == "" {
-		log.Println("nothing to say.")
+		slog.Info("nothing to say.")
 		return
 	}
-	log.Printf("saying '%s'...", text)
+	slog.Info("saying", "text", text)
 	wavData, err := piperClient.Synthesize(text)
 	if err != nil {
-		log.Printf("failed to synthesize text: %v", err)
+		slog.Error("failed to synthesize text", "error", err)
 		return
 	}
 
 	wavReader := wav.NewReader(bytes.NewReader(wavData))
 	pcmData, err := io.ReadAll(wavReader)
 	if err != nil {
-		log.Printf("failed to read pcm data: %v", err)
+		slog.Error("failed to read pcm data", "error", err)
 		return
 	}
 
 	// Convert mono to stereo and resample from 22050Hz to 44100Hz
 	pcmData = convertAudio(pcmData, 22050, 1, 44100, 2)
 	myFish.PlayAudioWithAnimation(pcmData, 44100, 2)
-	log.Printf("finished saying '%s'.", text)
+	slog.Info("finished saying", "text", text)
 }
 
 func (fish *Fish) PlayAudioWithAnimation(pcmData []byte, sampleRate, channelCount int) {
@@ -205,7 +205,7 @@ func (fish *Fish) PlayAudioWithAnimation(pcmData []byte, sampleRate, channelCoun
 				break
 			}
 			if err != nil {
-				log.Printf("Error reading audio for animation: %v", err)
+				slog.Error("Error reading audio for animation", "error", err)
 				break
 			}
 

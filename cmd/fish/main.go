@@ -3,25 +3,25 @@
 package main
 
 import (
-	"log"
-	"os"
+	"log/slog"
 	"time"
 
 	"github.com/robfig/cron/v3"
 	"github.com/wachiwi/sebaschtian-the-fish/pkg/fish"
+	"github.com/wachiwi/sebaschtian-the-fish/pkg/logger"
 	"github.com/wachiwi/sebaschtian-the-fish/pkg/piper"
 )
 
 func main() {
-	log.SetOutput(os.Stdout)
+	logger.Setup()
 
 	myFish, err := fish.NewFish("gpiochip0")
 	if err != nil {
-		log.Fatalf("failed to initialize fish: %v", err)
+		logger.Fatal("failed to initialize fish", "error", err)
 	}
 	defer myFish.Close()
 
-	log.Println("Audio system ready.")
+	slog.Info("Audio system ready.")
 
 	piperClient := piper.NewPiperClient("http://piper:5000")
 
@@ -33,12 +33,12 @@ func main() {
 
 	loc, err := time.LoadLocation("Europe/Berlin")
 	if err != nil {
-		log.Fatalf("Error loading location: %v", err)
+		logger.Fatal("Error loading location", "error", err)
 	}
 
 	c := cron.New(
 		cron.WithLocation(loc),
-		cron.WithChain(cron.SkipIfStillRunning(cron.DefaultLogger)),
+		cron.WithChain(cron.SkipIfStillRunning(&logger.CronLogger{Logger: slog.Default()})),
 	)
 
 	soundDir := "/sound-data"

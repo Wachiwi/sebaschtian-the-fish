@@ -2,13 +2,15 @@ package main
 
 import (
 	"flag"
-	"log"
+	"log/slog"
 	"os"
 
+	"github.com/wachiwi/sebaschtian-the-fish/pkg/logger"
 	"github.com/wachiwi/sebaschtian-the-fish/pkg/piper"
 )
 
 func main() {
+	logger.Setup()
 	var text string
 	var outputFile string
 
@@ -17,19 +19,19 @@ func main() {
 	flag.Parse()
 
 	if text == "" {
-		log.Fatal("Text to synthesize cannot be empty")
+		logger.Fatal("Text to synthesize cannot be empty")
 	}
 
 	client := piper.NewPiperClient("http://localhost:10200")
 	audioData, err := client.Synthesize(text)
 	if err != nil {
-		log.Fatalf("Failed to synthesize text: %v", err)
+		logger.Fatal("Failed to synthesize text", "error", err)
 	}
 
 	err = os.WriteFile(outputFile, audioData, 0644)
 	if err != nil {
-		log.Fatalf("Failed to write audio to file: %v", err)
+		logger.Fatal("Failed to write audio to file", "error", err)
 	}
 
-	log.Printf("Successfully synthesized text to %s\n", outputFile)
+	slog.Info("Successfully synthesized text", "file", outputFile)
 }

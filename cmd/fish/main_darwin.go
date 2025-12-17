@@ -3,25 +3,25 @@
 package main
 
 import (
-	"log"
-	"os"
+	"log/slog"
 	"time"
 
 	"github.com/robfig/cron/v3"
 	"github.com/wachiwi/sebaschtian-the-fish/pkg/fish"
+	"github.com/wachiwi/sebaschtian-the-fish/pkg/logger"
 	"github.com/wachiwi/sebaschtian-the-fish/pkg/piper"
 )
 
 func main() {
-	log.SetOutput(os.Stdout)
+	logger.Setup()
 
 	myFish, err := fish.NewFish("") // Empty string for chipName on macOS
 	if err != nil {
-		log.Fatalf("failed to initialize fish: %v", err)
+		logger.Fatal("failed to initialize fish", "error", err)
 	}
 	defer myFish.Close()
 
-	log.Println("Audio system ready (macOS/Darwin mode - no GPIO).")
+	slog.Info("Audio system ready (macOS/Darwin mode - no GPIO).")
 
 	// For macOS testing, you can either:
 	// 1. Comment out the piper client and Say() call (default)
@@ -30,7 +30,7 @@ func main() {
 	piperClient := piper.NewPiperClient("http://localhost:10200")
 
 	// Test audio without TTS
-	log.Println("Starting fish in macOS mode...")
+	slog.Info("Starting fish in macOS mode...")
 	myFish.Lock()
 	myFish.StopBody()
 	myFish.StopMouth()
@@ -38,12 +38,12 @@ func main() {
 
 	loc, err := time.LoadLocation("Europe/Berlin")
 	if err != nil {
-		log.Fatalf("Error loading location: %v", err)
+		logger.Fatal("Error loading location", "error", err)
 	}
 
 	c := cron.New(
 		cron.WithLocation(loc),
-		cron.WithChain(cron.SkipIfStillRunning(cron.DefaultLogger)),
+		cron.WithChain(cron.SkipIfStillRunning(&logger.CronLogger{Logger: slog.Default()})),
 	)
 
 	soundDir := "./sound-data"

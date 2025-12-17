@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	"log/slog"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -99,7 +99,7 @@ func getWeightedRandomPhrase() string {
 
 	playedItems, err := playlist.GetPlayedItems()
 	if err != nil {
-		log.Printf("Error getting played items: %v", err)
+		slog.Error("Error getting played items", "error", err)
 	} else {
 		recentlyPlayed := make(map[string]bool)
 		cutoff := time.Now().Add(-1 * time.Hour)
@@ -123,7 +123,7 @@ func getWeightedRandomPhrase() string {
 
 	// If all eligible phrases have been played, reset to the original list
 	if totalWeight == 0 && len(phrases) > 0 {
-		log.Println("All phrases have been played recently. Resetting phrase playlist for this round.")
+		slog.Info("All phrases have been played recently. Resetting phrase playlist for this round.")
 		phrasesToConsider = phrases // Reset to the list with original time-based weights
 		totalWeight = 0
 		for _, p := range phrasesToConsider {
@@ -132,7 +132,7 @@ func getWeightedRandomPhrase() string {
 	}
 
 	if totalWeight == 0 {
-		log.Println("No phrases to say after filtering and potential reset.")
+		slog.Info("No phrases to say after filtering and potential reset.")
 		return ""
 	}
 
@@ -146,7 +146,7 @@ func getWeightedRandomPhrase() string {
 				Timestamp: time.Now(),
 			}
 			if err := playlist.AddPlayedItem(item, 1*time.Hour); err != nil {
-				log.Printf("Error adding played item: %v", err)
+				slog.Error("Error adding played item", "error", err)
 			}
 			return p.Text
 		}
@@ -162,7 +162,7 @@ func getWeightedRandomPhrase() string {
 func sing(myFish *fish.Fish, soundDir string) {
 	allFiles, err := os.ReadDir(soundDir)
 	if err != nil {
-		log.Printf("failed to read sound directory '%s': %v", soundDir, err)
+		slog.Error("failed to read sound directory", "directory", soundDir, "error", err)
 		return
 	}
 
@@ -177,7 +177,7 @@ func sing(myFish *fish.Fish, soundDir string) {
 	var availableFiles []os.DirEntry
 	playedItems, err := playlist.GetPlayedItems()
 	if err != nil {
-		log.Printf("Error getting played items: %v", err)
+		slog.Error("Error getting played items", "error", err)
 		availableFiles = audioFiles // Play from all if we can't read playlist
 	} else {
 		recentlyPlayed := make(map[string]bool)
@@ -197,12 +197,12 @@ func sing(myFish *fish.Fish, soundDir string) {
 
 	// If all songs have been played recently, reset the available list to all songs.
 	if len(availableFiles) == 0 && len(audioFiles) > 0 {
-		log.Println("All songs have been played recently. Resetting song playlist for this round.")
+		slog.Info("All songs have been played recently. Resetting song playlist for this round.")
 		availableFiles = audioFiles
 	}
 
 	if len(availableFiles) == 0 {
-		log.Println("no .wav or .mp3 files found to sing, skipping.")
+		slog.Info("no .wav or .mp3 files found to sing, skipping.")
 		return
 	}
 
@@ -211,10 +211,10 @@ func sing(myFish *fish.Fish, soundDir string) {
 }
 
 func runFishCycle(myFish *fish.Fish, piperClient *piper.PiperClient, soundDir string, enableTTS bool) {
-	log.Println("Raising body...")
+	slog.Info("Raising body...")
 	myFish.Lock()
 	if err := myFish.RaiseBody(); err != nil {
-		log.Printf("Error raising body: %v", err)
+		slog.Error("Error raising body", "error", err)
 	}
 	myFish.Unlock()
 	time.Sleep(1 * time.Second)
@@ -222,11 +222,11 @@ func runFishCycle(myFish *fish.Fish, piperClient *piper.PiperClient, soundDir st
 	// Check for queued items first
 	queueItem, err := playlist.GetNextQueueItem()
 	if err != nil {
-		log.Printf("Error checking queue: %v", err)
+		slog.Error("Error checking queue", "error", err)
 	}
 
 	if queueItem != nil {
-		log.Printf("Playing queued item: %s (type: %s)", queueItem.Name, queueItem.Type)
+		slog.Info("Playing queued item", "name", queueItem.Name, "type", queueItem.Type)
 		switch queueItem.Type {
 		case "song":
 			myFish.PlaySoundFile(queueItem.Name)
@@ -234,7 +234,7 @@ func runFishCycle(myFish *fish.Fish, piperClient *piper.PiperClient, soundDir st
 			if enableTTS {
 				myFish.Say(piperClient, queueItem.Name)
 			} else {
-				log.Printf("Would say: %s", queueItem.Name)
+				slog.Info("Would say", "text", queueItem.Name)
 			}
 		}
 	} else {
@@ -245,7 +245,7 @@ func runFishCycle(myFish *fish.Fish, piperClient *piper.PiperClient, soundDir st
 			if enableTTS {
 				myFish.Say(piperClient, phraseToSay)
 			} else {
-				log.Printf("Would say: %s", phraseToSay)
+				slog.Info("Would say", "text", phraseToSay)
 			}
 		} else {
 			sing(myFish, soundDir)
@@ -253,26 +253,26 @@ func runFishCycle(myFish *fish.Fish, piperClient *piper.PiperClient, soundDir st
 	}
 
 	time.Sleep(1 * time.Second)
-	log.Println("Stopping body...")
+	slog.Info("Stopping body...")
 	myFish.Lock()
 	if err := myFish.StopBody(); err != nil {
-		log.Printf("Error stopping body: %v", err)
+		slog.Error("Error stopping body", "error", err)
 	}
 	myFish.Unlock()
 	time.Sleep(1 * time.Second)
 
-	log.Println("Tail...")
+	slog.Info("Tail...")
 	myFish.Lock()
 	if err := myFish.RaiseTail(); err != nil {
-		log.Printf("Error raising tail: %v", err)
+		slog.Error("Error raising tail", "error", err)
 	}
 	myFish.Unlock()
 	time.Sleep(1 * time.Second)
 
-	log.Println("Stopping tail...")
+	slog.Info("Stopping tail...")
 	myFish.Lock()
 	if err := myFish.StopBody(); err != nil {
-		log.Printf("Error stopping tail: %v", err)
+		slog.Error("Error stopping tail", "error", err)
 	}
 	myFish.Unlock()
 }

@@ -2,8 +2,9 @@ package kantine
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"sort"
 	"time"
@@ -38,14 +39,14 @@ const (
 	outputTimeLayout = "02.01.2006"
 )
 
-func Fetch() []OutputMenu {
+func Fetch() ([]OutputMenu, error) {
 	// 1. Fetch Data with Basic Auth
 	client := &http.Client{
 		Timeout: 30 * time.Second, // Set a reasonable timeout
 	}
 	req, err := http.NewRequest("GET", apiURL, nil)
 	if err != nil {
-		log.Fatalf("Error creating request: %v", err)
+		return nil, fmt.Errorf("error creating request: %v", err)
 	}
 
 	req.SetBasicAuth(apiUser, apiPassword)
@@ -53,25 +54,25 @@ func Fetch() []OutputMenu {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Fatalf("Error executing request: %v", err)
+		return nil, fmt.Errorf("error executing request: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body) // Read body for error context
-		log.Fatalf("API request failed with status code %d: %s", resp.StatusCode, string(bodyBytes))
+		return nil, fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, string(bodyBytes))
 	}
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Fatalf("Error reading response body: %v", err)
+		return nil, fmt.Errorf("error reading response body: %v", err)
 	}
 
 	// 2. Parse Initial JSON
 	var topLevelData []TopLevelElement
 	err = json.Unmarshal(bodyBytes, &topLevelData)
 	if err != nil {
-		log.Fatalf("Error unmarshalling initial JSON: %v", err)
+		return nil, fmt.Errorf("error unmarshalling initial JSON: %v", err)
 	}
 
 	// 3. Flatten the data (equivalent to '.[] .speiseplanGerichtData')
@@ -81,7 +82,7 @@ func Fetch() []OutputMenu {
 	}
 
 	if len(allGerichteData) == 0 {
-		return []OutputMenu{}
+		return []OutputMenu{}, nil
 	}
 
 	// 4. Group by Date (equivalent to 'group_by(.speiseplanAdvancedGericht.datum)')
@@ -120,7 +121,7 @@ func Fetch() []OutputMenu {
 		// Parse the date string (use the key itself)
 		parsedTime, err := time.Parse(inputTimeLayout, dateStr)
 		if err != nil {
-			log.Printf("Warning: Skipping date '%s' due to parse error: %v", dateStr, err)
+			slog.Warn("Skipping date due to parse error", "date", dateStr, "error", err)
 			continue // Skip this group if date parsing fails
 		}
 		formattedDate := parsedTime.Format(outputTimeLayout)
@@ -137,6 +138,5 @@ func Fetch() []OutputMenu {
 			Gerichte: mealNames,
 		})
 	}
-	return finalOutput
-
+	return finalOutput, nil
 }

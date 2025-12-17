@@ -4,7 +4,7 @@ import (
 	"embed"
 	"fmt"
 	"io/fs"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -14,6 +14,7 @@ import (
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 	"github.com/wachiwi/sebaschtian-the-fish/pkg/camera"
+	"github.com/wachiwi/sebaschtian-the-fish/pkg/logger"
 	"github.com/wachiwi/sebaschtian-the-fish/pkg/playlist"
 	"sort"
 	"time"
@@ -55,11 +56,11 @@ func GetSoundFiles() []SoundFile {
 	if err != nil {
 		if os.IsNotExist(err) {
 			if err := os.MkdirAll(dataDir, 0755); err != nil {
-				log.Printf("Failed to create data directory: %v", err)
+				slog.Error("Failed to create data directory", "error", err)
 			}
 			return []SoundFile{}
 		}
-		log.Printf("Failed to read data directory: %v", err)
+		slog.Error("Failed to read data directory", "error", err)
 		return []SoundFile{}
 	}
 
@@ -76,6 +77,7 @@ func GetSoundFiles() []SoundFile {
 }
 
 func main() {
+	logger.Setup()
 	gin.SetMode(gin.ReleaseMode)
 	// --- Credentials and Session Setup ---
 	port := os.Getenv("SOUNDS_PORT")
@@ -87,7 +89,7 @@ func main() {
 	password := os.Getenv("SOUNDS_PASSWORD")
 	sessionSecret := os.Getenv("SOUNDS_SESSION_SECRET")
 	if user == "" || password == "" || sessionSecret == "" {
-		log.Fatal("SOUNDS_USER, SOUNDS_PASSWORD, and SOUNDS_SESSION_SECRET must be set")
+		logger.Fatal("SOUNDS_USER, SOUNDS_PASSWORD, and SOUNDS_SESSION_SECRET must be set")
 	}
 
 	// --- Camera Setup ---
@@ -99,7 +101,7 @@ func main() {
 		FPS:    60,
 	})
 	if err := cam.Start(); err != nil {
-		log.Printf("Warning: Failed to start camera: %v", err)
+		slog.Warn("Failed to start camera", "error", err)
 	}
 	defer cam.Stop()
 
@@ -135,7 +137,7 @@ func main() {
 		if formUser == user && formPassword == password {
 			session.Set("user", user)
 			if err := session.Save(); err != nil {
-				log.Printf("Failed to save session: %v", err)
+				slog.Error("Failed to save session", "error", err)
 				c.String(http.StatusInternalServerError, "Failed to save session")
 				return
 			}
@@ -162,13 +164,13 @@ func main() {
 			soundFiles := GetSoundFiles()
 			playedItems, err := playlist.GetPlayedItems()
 			if err != nil {
-				log.Printf("Failed to get played items: %v", err)
+				slog.Error("Failed to get played items", "error", err)
 				playedItems = []playlist.PlayedItem{}
 			}
 
 			queueItems, err := playlist.GetQueueItems()
 			if err != nil {
-				log.Printf("Failed to get queue items: %v", err)
+				slog.Error("Failed to get queue items", "error", err)
 				queueItems = []playlist.QueueItem{}
 			}
 
@@ -209,7 +211,7 @@ func main() {
 		authorized.GET("/queue", func(c *gin.Context) {
 			queueItems, err := playlist.GetQueueItems()
 			if err != nil {
-				log.Printf("Failed to get queue items: %v", err)
+				slog.Error("Failed to get queue items", "error", err)
 				c.String(http.StatusInternalServerError, "Failed to get queue")
 				return
 			}
@@ -233,17 +235,17 @@ func main() {
 				Type: "song",
 			}
 			if err := playlist.AddToQueue(item); err != nil {
-				log.Printf("Failed to add to queue: %v", err)
+				slog.Error("Failed to add to queue", "error", err)
 				c.String(http.StatusInternalServerError, "Failed to queue playback")
 				return
 			}
 
-			log.Printf("Queued playback for: %s", filename)
+			slog.Info("Queued playback", "filename", filename)
 
 			// Return updated queue list
 			queueItems, err := playlist.GetQueueItems()
 			if err != nil {
-				log.Printf("Failed to get queue items: %v", err)
+				slog.Error("Failed to get queue items", "error", err)
 				c.String(http.StatusInternalServerError, "Failed to get queue")
 				return
 			}
@@ -306,6 +308,6 @@ func main() {
 		})
 	}
 
-	log.Printf("Server is running on http://localhost:%s\n", port)
+	slog.Info("Server is running", "url", fmt.Sprintf("http://localhost:%s", port))
 	router.Run(fmt.Sprintf(":%s", port))
 }
