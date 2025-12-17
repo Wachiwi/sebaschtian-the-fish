@@ -9,116 +9,156 @@
 </head>
 <body class="bg-orange-50 text-slate-700">
 
-<div class="container mx-auto p-8 max-w-2xl">
-    <div class="flex justify-between items-center mb-4">
+<div class="container mx-auto p-4 max-w-4xl" x-data="{ activeTab: 'control' }">
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-6">
         <div class="w-1/3"></div>
         <div class="w-1/3 flex justify-center">
-            <img src="/static/logo.png" alt="Sebaschtian Logo" class="max-h-40">
+            <img src="/static/logo.png" alt="Sebaschtian Logo" class="max-h-32">
         </div>
         <div class="w-1/3 flex justify-end">
-            <a href="/logout" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-full">Logout</a>
+            <a href="/logout" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-full text-sm">Logout</a>
         </div>
     </div>
-    <h1 class="text-4xl font-bold text-center mb-8 text-cyan-950">Simple Sebaschtian's Storage (S3)</h1>
+    <h1 class="text-3xl font-bold text-center mb-6 text-cyan-950">Simple Sebaschtian's Storage</h1>
 
-    <div class="bg-white p-6 rounded-lg shadow-md mb-8">
-        <h2 class="text-2xl font-semibold mb-4 text-cyan-950">Live Camera Feed</h2>
-        <div class="flex justify-center">
-            <img src="/camera/stream" alt="Camera Stream" class="w-full max-w-2xl rounded-lg border-2 border-cyan-600">
-        </div>
+    <!-- Tabs Navigation -->
+    <div class="flex justify-center mb-6 space-x-2 bg-white p-1 rounded-full shadow-sm max-w-md mx-auto">
+        <button @click="activeTab = 'control'" 
+                :class="{ 'bg-cyan-600 text-white': activeTab === 'control', 'text-slate-600 hover:bg-slate-100': activeTab !== 'control' }"
+                class="flex-1 py-2 px-4 rounded-full text-sm font-semibold transition-colors duration-200">
+            Control
+        </button>
+        <button @click="activeTab = 'library'" 
+                :class="{ 'bg-cyan-600 text-white': activeTab === 'library', 'text-slate-600 hover:bg-slate-100': activeTab !== 'library' }"
+                class="flex-1 py-2 px-4 rounded-full text-sm font-semibold transition-colors duration-200">
+            Library
+        </button>
+        <button @click="activeTab = 'history'" 
+                :class="{ 'bg-cyan-600 text-white': activeTab === 'history', 'text-slate-600 hover:bg-slate-100': activeTab !== 'history' }"
+                class="flex-1 py-2 px-4 rounded-full text-sm font-semibold transition-colors duration-200">
+            History
+        </button>
     </div>
 
-    <div class="bg-white p-6 rounded-lg shadow-md mb-8">
-        <h2 class="text-2xl font-semibold mb-4 text-cyan-950">Upload New Sound</h2>
-        <form hx-post="/upload"
-              hx-target="#sound-list"
-              hx-swap="innerHTML"
-              hx-encoding="multipart/form-data"
-              class="flex items-center space-x-4">
-            <input type="file" name="soundFile" class="flex-grow text-sm text-slate-500
-                      file:mr-4 file:py-2 file:px-4
-                      file:rounded-full file:border-0
-                      file:text-sm file:font-semibold
-                      file:bg-emerald-50 file:text-emerald-700
-                      hover:file:bg-emerald-100">
-            <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-full">
-                Upload
-            </button>
-        </form>
-    </div>
-
-    <div class="bg-white p-6 rounded-lg shadow-md mb-8">
-        <div class="flex justify-between items-center mb-4">
-            <h2 class="text-2xl font-semibold text-cyan-950">Playback Queue</h2>
-            <span class="text-sm text-slate-500">{{len .queueItems}} item(s) queued</span>
+    <!-- Tab Content: Control -->
+    <div x-show="activeTab === 'control'" class="space-y-6">
+        <!-- Live Camera -->
+        <div class="bg-white p-4 rounded-lg shadow-md">
+            <h2 class="text-xl font-semibold mb-3 text-cyan-950">Live Camera</h2>
+            <div class="flex justify-center bg-black rounded-lg overflow-hidden aspect-video">
+                <img src="/camera/stream" alt="Camera Stream" class="w-full h-full object-contain">
+            </div>
         </div>
-        <div id="queue-list" class="space-y-2">
-            {{define "queue-list"}}
-                {{range $index, $item := .queueItems}}
-                <div class="flex items-center gap-3 p-2 bg-yellow-100 rounded-lg">
-                    <span class="text-lg font-bold text-yellow-700 bg-yellow-200 rounded-full w-8 h-8 flex items-center justify-center">{{ add $index 1 }}</span>
-                    <div class="flex-grow">
-                        <span class="font-medium text-slate-700 text-sm">{{ .Name }}</span>
-                        <span class="text-xs text-slate-500 block">{{ .Type }}</span>
+
+        <!-- Queue -->
+        <div class="bg-white p-4 rounded-lg shadow-md">
+            <div class="flex justify-between items-center mb-3">
+                <h2 class="text-xl font-semibold text-cyan-950">Playback Queue</h2>
+                <span class="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded-full">{{len .queueItems}} queued</span>
+            </div>
+            <div id="queue-list" class="space-y-2 max-h-60 overflow-y-auto">
+                {{define "queue-list"}}
+                    {{range $index, $item := .queueItems}}
+                    <div class="flex items-center gap-3 p-2 bg-yellow-50 border border-yellow-100 rounded-lg">
+                        <span class="text-sm font-bold text-yellow-700 bg-yellow-200 rounded-full w-6 h-6 flex items-center justify-center">{{ add $index 1 }}</span>
+                        <div class="flex-grow min-w-0">
+                            <span class="font-medium text-slate-700 text-sm truncate block">{{ .Name }}</span>
+                            <span class="text-xs text-slate-500 block uppercase tracking-wide">{{ .Type }}</span>
+                        </div>
                     </div>
-                </div>
-                {{else}}
-                <div class="text-center py-4">
-                    <p class="text-slate-500 text-sm">Queue is empty</p>
-                    <p class="text-slate-400 text-xs mt-1">Click "Play on Fish" to add sounds to the queue</p>
-                </div>
+                    {{else}}
+                    <div class="text-center py-8 bg-slate-50 rounded-lg border-2 border-dashed border-slate-200">
+                        <p class="text-slate-500 text-sm font-medium">Queue is empty</p>
+                        <p class="text-slate-400 text-xs mt-1">Go to Library to add sounds</p>
+                    </div>
+                    {{end}}
                 {{end}}
-            {{end}}
-
-            {{template "queue-list" .}}
+                {{template "queue-list" .}}
+            </div>
         </div>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div class="bg-white p-6 rounded-lg shadow-md">
-            <h2 class="text-2xl font-semibold mb-4 text-cyan-950">Available Sounds</h2>
-            <div id="sound-list" class="space-y-4">
+    <!-- Tab Content: Library -->
+    <div x-show="activeTab === 'library'" class="space-y-6" style="display: none;">
+        <!-- Upload -->
+        <div class="bg-white p-4 rounded-lg shadow-md">
+            <h2 class="text-xl font-semibold mb-3 text-cyan-950">Upload Sound</h2>
+            <form hx-post="/upload"
+                  hx-target="#sound-list"
+                  hx-swap="innerHTML"
+                  hx-encoding="multipart/form-data"
+                  class="flex flex-col sm:flex-row items-center gap-3">
+                <input type="file" name="soundFile" class="w-full text-sm text-slate-500
+                          file:mr-4 file:py-2 file:px-4
+                          file:rounded-full file:border-0
+                          file:text-xs file:font-semibold
+                          file:bg-emerald-50 file:text-emerald-700
+                          hover:file:bg-emerald-100 cursor-pointer">
+                <button type="submit" class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-6 rounded-full text-sm transition-colors">
+                    Upload
+                </button>
+            </form>
+        </div>
+
+        <!-- Available Sounds -->
+        <div class="bg-white p-4 rounded-lg shadow-md">
+            <h2 class="text-xl font-semibold mb-3 text-cyan-950">Sound Library</h2>
+            <div id="sound-list" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {{define "sound-list"}}
                     {{range .soundFiles}}
-                    <div class="flex flex-col gap-2 p-3 bg-orange-100 rounded-lg">
-                        <div class="flex items-center justify-between">
-                            <span class="font-medium text-slate-700">{{ .Name }}</span>
+                    <div class="flex flex-col gap-2 p-3 bg-orange-50 border border-orange-100 rounded-lg hover:border-orange-200 transition-colors">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="font-medium text-slate-700 text-sm truncate" title="{{ .Name }}">{{ .Name }}</span>
                             <button hx-post="/play/{{ .Name }}" 
                                     hx-target="#queue-list"
                                     hx-swap="innerHTML"
-                                    class="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-1 px-3 rounded-full text-sm whitespace-nowrap">
-                                Play on Fish
+                                    class="bg-cyan-600 hover:bg-cyan-700 text-white font-bold p-1.5 rounded-full shadow-sm transition-transform active:scale-95"
+                                    title="Add to Queue">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
+                                  <path fill-rule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653z" clip-rule="evenodd" />
+                                </svg>
                             </button>
                         </div>
-                        <audio controls src="{{ .Path }}" class="w-full h-10"></audio>
+                        <audio controls src="{{ .Path }}" class="w-full h-8 mt-1"></audio>
                     </div>
                     {{else}}
-                    <p class="text-slate-700">No sounds uploaded yet.</p>
+                    <div class="col-span-full text-center py-8">
+                        <p class="text-slate-500">No sounds uploaded yet.</p>
+                    </div>
                     {{end}}
                 {{end}}
-
                 {{template "sound-list" .}}
             </div>
         </div>
-        <div class="bg-white p-6 rounded-lg shadow-md">
-            <h2 class="text-2xl font-semibold mb-4 text-cyan-950">Recently Played</h2>
+    </div>
+
+    <!-- Tab Content: History -->
+    <div x-show="activeTab === 'history'" class="space-y-6" style="display: none;">
+        <div class="bg-white p-4 rounded-lg shadow-md">
+            <h2 class="text-xl font-semibold mb-3 text-cyan-950">Recently Played</h2>
             <div id="played-list" class="space-y-2">
                 {{range .playedItems}}
-                <div class="flex items-center justify-between p-2 bg-sky-100 rounded-lg">
-                    <div>
-                        <span class="font-medium text-slate-700 text-sm">{{ .Name }}</span>
-                        <span class="text-xs text-slate-500 block">{{ .Type }}</span>
+                <div class="flex items-center justify-between p-3 bg-slate-50 border border-slate-100 rounded-lg">
+                    <div class="min-w-0">
+                        <span class="font-medium text-slate-700 text-sm block truncate">{{ .Name }}</span>
+                        <span class="text-xs text-slate-500 uppercase tracking-wide">{{ .Type }}</span>
                     </div>
-                    <span class="text-xs text-slate-500">{{ .Timestamp.Format "15:04:05" }}</span>
+                    <span class="text-xs text-slate-400 font-mono whitespace-nowrap ml-3">{{ .Timestamp.Format "Jan 02 15:04" }}</span>
                 </div>
                 {{else}}
-                <p class="text-slate-700">No items played recently.</p>
+                <div class="text-center py-8">
+                    <p class="text-slate-500">No items played recently.</p>
+                </div>
                 {{end}}
             </div>
         </div>
     </div>
 
 </div>
+
+<!-- Simple Alpine.js for Tabs (Loaded from CDN) -->
+<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 
 </body>
 </html>
