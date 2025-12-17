@@ -26,6 +26,18 @@ var (
 	queueMu   sync.Mutex
 )
 
+// Init initializes the playlist configuration with a custom data directory.
+// This allows different services to point to the correct volume mount location.
+func Init(dataDir string) {
+	mu.Lock()
+	defer mu.Unlock()
+	queueMu.Lock()
+	defer queueMu.Unlock()
+
+	filePath = filepath.Join(dataDir, "played.json")
+	queuePath = filepath.Join(dataDir, "queue.json")
+}
+
 // ensureDir creates the directory if it doesn't exist
 func ensureDir(path string) error {
 	dir := filepath.Dir(path)

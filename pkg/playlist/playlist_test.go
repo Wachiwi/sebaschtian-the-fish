@@ -1,7 +1,6 @@
 package playlist
 
 import (
-	"path/filepath"
 	"testing"
 	"time"
 )
@@ -9,8 +8,7 @@ import (
 func TestQueueOperations(t *testing.T) {
 	// Setup temp dir and override global paths
 	tmpDir := t.TempDir()
-	filePath = filepath.Join(tmpDir, "played.json")
-	queuePath = filepath.Join(tmpDir, "queue.json")
+	Init(tmpDir)
 
 	// 1. Test Empty Queue
 	item, err := GetNextQueueItem()
@@ -46,7 +44,7 @@ func TestQueueOperations(t *testing.T) {
 func TestPlayedItemsRetention(t *testing.T) {
 	// Setup temp dir
 	tmpDir := t.TempDir()
-	filePath = filepath.Join(tmpDir, "played.json")
+	Init(tmpDir)
 
 	// 1. Add old item (should be cleaned up)
 	oldItem := PlayedItem{Name: "old", Timestamp: time.Now().Add(-2 * time.Hour)}

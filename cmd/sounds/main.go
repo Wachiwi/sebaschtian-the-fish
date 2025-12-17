@@ -66,11 +66,14 @@ func GetSoundFiles() []SoundFile {
 
 	var soundFiles []SoundFile
 	for _, file := range files {
-		if !file.IsDir() {
-			soundFiles = append(soundFiles, SoundFile{
-				Name: file.Name(),
-				Path: filepath.Join("/sounds", file.Name()),
-			})
+		if !file.IsDir() && (filepath.Ext(file.Name()) == ".mp3" || filepath.Ext(file.Name()) == ".wav" || filepath.Ext(file.Name()) == ".json") {
+			// Skip JSON files from sound list, but read audio
+			if filepath.Ext(file.Name()) != ".json" {
+				soundFiles = append(soundFiles, SoundFile{
+					Name: file.Name(),
+					Path: filepath.Join("/sounds", file.Name()),
+				})
+			}
 		}
 	}
 	return soundFiles
@@ -78,6 +81,11 @@ func GetSoundFiles() []SoundFile {
 
 func main() {
 	logger.Setup()
+
+	// Initialize Playlist with the correct path
+	// The container mounts the volume at /app/sound-data, which corresponds to ./sound-data relative to WORKDIR /app
+	playlist.Init("./sound-data")
+
 	gin.SetMode(gin.ReleaseMode)
 	// --- Credentials and Session Setup ---
 	port := os.Getenv("SOUNDS_PORT")

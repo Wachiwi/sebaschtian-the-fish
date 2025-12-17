@@ -11,6 +11,7 @@ import (
 	"github.com/wachiwi/sebaschtian-the-fish/pkg/fish"
 	"github.com/wachiwi/sebaschtian-the-fish/pkg/logger"
 	"github.com/wachiwi/sebaschtian-the-fish/pkg/piper"
+	"github.com/wachiwi/sebaschtian-the-fish/pkg/playlist"
 	"github.com/wachiwi/sebaschtian-the-fish/pkg/telemetry"
 )
 
@@ -29,6 +30,10 @@ func main() {
 			}
 		}()
 	}
+
+	// Initialize Playlist with the correct mount path
+	// The container mounts the volume at /sound-data
+	playlist.Init("/sound-data")
 
 	myFish, err := fish.NewFish("gpiochip0")
 	if err != nil {
