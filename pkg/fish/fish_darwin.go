@@ -89,7 +89,9 @@ func (f *Fish) Close() {
 	slog.Info("[MOCK] Closing fish")
 }
 
-func (fish *Fish) PlaySoundFile(filename string) {
+// PlaySoundFile plays a sound file and animates the fish.
+// It returns an error if the file cannot be read, decoded, or played.
+func (fish *Fish) PlaySoundFile(filename string) error {
 	soundDir := "./sound-data"
 	filePath := filepath.Join(soundDir, filename)
 
@@ -103,12 +105,12 @@ func (fish *Fish) PlaySoundFile(filename string) {
 	}
 	if err := playlist.AddPlayedItem(item, 1*time.Hour); err != nil {
 		slog.Error("Error adding played item", "error", err)
+		// Non-fatal error, continue
 	}
 
 	fileData, err := os.ReadFile(filePath)
 	if err != nil {
-		slog.Error("failed to read sound file", "file", filePath, "error", err)
-		return
+		return fmt.Errorf("failed to read sound file '%s': %w", filePath, err)
 	}
 
 	var pcmData []byte
@@ -120,14 +122,12 @@ func (fish *Fish) PlaySoundFile(filename string) {
 		wavReader := wav.NewReader(bytes.NewReader(fileData))
 		format, err := wavReader.Format()
 		if err != nil {
-			slog.Error("failed to get wav format", "file", filename, "error", err)
-			return
+			return fmt.Errorf("failed to get wav format from '%s': %w", filename, err)
 		}
 		wavReader = wav.NewReader(bytes.NewReader(fileData))
 		pcmData, err = io.ReadAll(wavReader)
 		if err != nil {
-			slog.Error("failed to decode wav data", "file", filename, "error", err)
-			return
+			return fmt.Errorf("failed to decode wav data from '%s': %w", filename, err)
 		}
 		sampleRate = int(format.SampleRate)
 		channelCount = int(format.NumChannels)
@@ -135,13 +135,11 @@ func (fish *Fish) PlaySoundFile(filename string) {
 	case ".mp3":
 		decoder, err := mp3.NewDecoder(bytes.NewReader(fileData))
 		if err != nil {
-			slog.Error("failed to create mp3 decoder", "file", filename, "error", err)
-			return
+			return fmt.Errorf("failed to create mp3 decoder for '%s': %w", filename, err)
 		}
 		pcmData, err = io.ReadAll(decoder)
 		if err != nil {
-			slog.Error("failed to decode mp3 data", "file", filename, "error", err)
-			return
+			return fmt.Errorf("failed to decode mp3 data from '%s': %w", filename, err)
 		}
 		sampleRate = decoder.SampleRate()
 		channelCount = 2
@@ -154,44 +152,59 @@ func (fish *Fish) PlaySoundFile(filename string) {
 			sampleRate = 44100
 			channelCount = 2
 		}
-		fish.PlayAudioWithAnimation(pcmData, sampleRate, channelCount)
+		if err := fish.PlayAudioWithAnimation(pcmData, sampleRate, channelCount); err != nil {
+			return fmt.Errorf("failed to play audio: %w", err)
+		}
 		slog.Info("finished playing", "filename", filename)
 	}
+	return nil
 }
 
-func (myFish *Fish) Say(piperClient *piper.PiperClient, text string) {
+// Say synthesizes text and plays it while animating the fish.
+// It returns an error if synthesis or playback fails.
+func (myFish *Fish) Say(piperClient *piper.PiperClient, text string) error {
 	if text == "" {
 		slog.Info("nothing to say.")
-		return
+		return nil
 	}
 	slog.Info("saying", "text", text)
 	wavData, err := piperClient.Synthesize(text)
 	if err != nil {
-		slog.Error("failed to synthesize text", "error", err)
-		return
+		return fmt.Errorf("failed to synthesize text: %w", err)
 	}
 
 	wavReader := wav.NewReader(bytes.NewReader(wavData))
 	pcmData, err := io.ReadAll(wavReader)
 	if err != nil {
-		slog.Error("failed to read pcm data", "error", err)
-		return
+		return fmt.Errorf("failed to read pcm data: %w", err)
 	}
 
 	// Convert mono to stereo and resample from 22050Hz to 44100Hz
 	pcmData = convertAudio(pcmData, 22050, 1, 44100, 2)
-	myFish.PlayAudioWithAnimation(pcmData, 44100, 2)
+	if err := myFish.PlayAudioWithAnimation(pcmData, 44100, 2); err != nil {
+		return fmt.Errorf("failed to play audio: %w", err)
+	}
 	slog.Info("finished saying", "text", text)
+	return nil
 }
 
-func (fish *Fish) PlayAudioWithAnimation(pcmData []byte, sampleRate, channelCount int) {
+// PlayAudioWithAnimation plays audio and animates the mouth.
+// It implements a timeout to prevent hanging if the audio player gets stuck.
+func (fish *Fish) PlayAudioWithAnimation(pcmData []byte, sampleRate, channelCount int) error {
 	bitDepthInBytes := 2 // 16-bit audio
+
+	// Calculate approximate duration for timeout
+	numSamples := len(pcmData) / (channelCount * bitDepthInBytes)
+	duration := time.Duration(float64(numSamples) / float64(sampleRate) * float64(time.Second))
 
 	player := fish.otoCtx.NewPlayer(bytes.NewReader(pcmData))
 	defer player.Close()
 	player.Play()
 
+	done := make(chan struct{})
+
 	go func() {
+		defer close(done)
 		const chunkDuration = 100 * time.Millisecond
 		const amplitudeThreshold = 1500
 		isMouthOpen := false
@@ -255,8 +268,30 @@ func (fish *Fish) PlayAudioWithAnimation(pcmData []byte, sampleRate, channelCoun
 		fish.Unlock()
 	}()
 
+	// Safety timeout: Expected duration + 5 seconds margin
+	timeout := duration + 5*time.Second
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
 	for player.IsPlaying() {
-		time.Sleep(100 * time.Millisecond)
+		select {
+		case <-timer.C:
+			return fmt.Errorf("playback timed out after %v", timeout)
+		case <-ticker.C:
+			// continue polling
+		}
+	}
+
+	// Wait for animation to finish
+	select {
+	case <-done:
+		return nil
+	case <-time.After(2 * time.Second):
+		slog.Warn("Animation goroutine took too long to finish")
+		return nil
 	}
 }
 

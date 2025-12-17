@@ -207,7 +207,9 @@ func sing(myFish *fish.Fish, soundDir string) {
 	}
 
 	randomFile := availableFiles[rand.Intn(len(availableFiles))]
-	myFish.PlaySoundFile(randomFile.Name())
+	if err := myFish.PlaySoundFile(randomFile.Name()); err != nil {
+		slog.Error("Failed to play song", "file", randomFile.Name(), "error", err)
+	}
 }
 
 func runFishCycle(myFish *fish.Fish, piperClient *piper.PiperClient, soundDir string, enableTTS bool) {
@@ -229,10 +231,14 @@ func runFishCycle(myFish *fish.Fish, piperClient *piper.PiperClient, soundDir st
 		slog.Info("Playing queued item", "name", queueItem.Name, "type", queueItem.Type)
 		switch queueItem.Type {
 		case "song":
-			myFish.PlaySoundFile(queueItem.Name)
+			if err := myFish.PlaySoundFile(queueItem.Name); err != nil {
+				slog.Error("Failed to play sound file", "file", queueItem.Name, "error", err)
+			}
 		case "text":
 			if enableTTS {
-				myFish.Say(piperClient, queueItem.Name)
+				if err := myFish.Say(piperClient, queueItem.Name); err != nil {
+					slog.Error("Failed to say text", "text", queueItem.Name, "error", err)
+				}
 			} else {
 				slog.Info("Would say", "text", queueItem.Name)
 			}
@@ -243,7 +249,9 @@ func runFishCycle(myFish *fish.Fish, piperClient *piper.PiperClient, soundDir st
 		if action == 0 {
 			phraseToSay := getWeightedRandomPhrase()
 			if enableTTS {
-				myFish.Say(piperClient, phraseToSay)
+				if err := myFish.Say(piperClient, phraseToSay); err != nil {
+					slog.Error("Failed to say phrase", "text", phraseToSay, "error", err)
+				}
 			} else {
 				slog.Info("Would say", "text", phraseToSay)
 			}
