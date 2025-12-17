@@ -64,6 +64,10 @@ services:
       - HOST_PROC=/hostfs/proc
       - HOST_SYS=/hostfs/sys
       - HOST_ETC=/hostfs/etc
+      # Configurable remote endpoint (default to unused local port to disable)
+      - OTEL_REMOTE_ENDPOINT=${OTEL_REMOTE_ENDPOINT:-127.0.0.1:55666}
+      - OTEL_REMOTE_AUTH_HEADER=${OTEL_REMOTE_AUTH_HEADER}
+      - OTEL_REMOTE_INSECURE=${OTEL_REMOTE_INSECURE:-true}
     ports:
       - "4317:4317" # OTLP gRPC
       - "4318:4318" # OTLP HTTP

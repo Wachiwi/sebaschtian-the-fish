@@ -27,18 +27,25 @@ processors:
 exporters:
   debug:
     verbosity: detailed
+  
+  otlp/remote:
+    endpoint: "${env:OTEL_REMOTE_ENDPOINT}"
+    tls:
+      insecure: ${env:OTEL_REMOTE_INSECURE}
+    headers:
+      "Authorization": "${env:OTEL_REMOTE_AUTH_HEADER}"
 
 service:
   pipelines:
     metrics:
       receivers: [hostmetrics, docker_stats, otlp]
       processors: [batch]
-      exporters: [debug]
+      exporters: [debug, otlp/remote]
     traces:
       receivers: [otlp]
       processors: [batch]
-      exporters: [debug]
+      exporters: [debug, otlp/remote]
     logs:
       receivers: [otlp]
       processors: [batch]
-      exporters: [debug]
+      exporters: [debug, otlp/remote]
