@@ -3,6 +3,7 @@ version: "2"
 services:
   piper:
     build: piper
+    restart: always
     ports:
       - 10200:5000
   sebaschtian:
@@ -15,7 +16,7 @@ services:
     cap_add:
       - SYS_RAWIO
       - NET_ADMIN
-    restart: on-failure
+    restart: always
     labels:
       io.balena.features.dbus: "1"
     volumes:
@@ -26,6 +27,7 @@ services:
       target: sounds
     ports:
       - "80:80"
+    restart: always
     environment:
       SOUNDS_PORT: 80
     volumes:
@@ -78,7 +80,7 @@ services:
     build:
       context: .
       target: balena-monitor
-    restart: on-failure
+    restart: always
     labels:
       io.balena.features.supervisor-api: "1" # Allow access to Supervisor API
     depends_on:
