@@ -25,3 +25,9 @@ go.work
 .idea
 ollama_data
 sound-data/
+
+# Binaries
+bin/
+fish
+sounds
+balena-monitor
