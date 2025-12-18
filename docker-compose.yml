@@ -30,6 +30,7 @@ services:
     ports:
       - "80:80"
     restart: always
+    privileged: true
     environment:
       SOUNDS_PORT: 80
     volumes:
