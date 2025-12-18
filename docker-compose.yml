@@ -21,6 +21,8 @@ services:
       io.balena.features.dbus: "1"
     volumes:
       - sound-data:/sound-data
+    depends_on:
+      - otel-collector
   sound:
     build:
       context: .
@@ -48,6 +50,8 @@ services:
       - /dev/video22:/dev/video22
       - /dev/video23:/dev/video23
       - /dev/video31:/dev/video31
+    depends_on:
+      - otel-collector
 
   otel-collector:
     build: otel
