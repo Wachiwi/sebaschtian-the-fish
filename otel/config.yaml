@@ -5,7 +5,6 @@ receivers:
       http:
 
   hostmetrics:
-    root_path: /hostfs
     collection_interval: 10s
     scrapers:
       cpu:
@@ -16,7 +15,7 @@ receivers:
       filesystem:
 
   docker_stats:
-    endpoint: unix:///var/run/docker.sock
+    endpoint: unix:///var/run/balena-engine.sock
     collection_interval: 10s
     timeout: 20s
     api_version: 1.24

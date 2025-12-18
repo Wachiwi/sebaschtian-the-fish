@@ -50,31 +50,19 @@ services:
       - /dev/video31:/dev/video31
 
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.96.0
-    command: ["--config=/etc/otelcol-contrib/config.yaml"]
-    volumes:
-      - ./otel/config.yaml:/etc/otelcol-contrib/config.yaml
-      # Mount host filesystems for hostmetrics receiver
-      - /proc:/hostfs/proc:ro
-      - /sys:/hostfs/sys:ro
-      - /etc:/hostfs/etc:ro
-      # Mount docker socket for docker_stats receiver
-      # Note: On BalenaOS, the engine socket might be at /var/run/balena-engine.sock
-      # We map it to the standard docker location inside the container
-      - /var/run/balena-engine.sock:/var/run/docker.sock:ro
+    build: otel
+    labels:
+      io.balena.features.balena-socket: "1"
+    pid: host
+    privileged: true
+    restart: always
     environment:
-      - HOST_PROC=/hostfs/proc
-      - HOST_SYS=/hostfs/sys
-      - HOST_ETC=/hostfs/etc
-      # Configurable remote endpoint (default to unused local port to disable)
       - OTEL_REMOTE_ENDPOINT=${OTEL_REMOTE_ENDPOINT:-127.0.0.1:55666}
       - OTEL_REMOTE_AUTH_HEADER=${OTEL_REMOTE_AUTH_HEADER}
       - OTEL_REMOTE_INSECURE=${OTEL_REMOTE_INSECURE:-true}
     ports:
-      - "4317:4317" # OTLP gRPC
-      - "4318:4318" # OTLP HTTP
-    restart: always
-    privileged: true # Often needed for full access to host metrics
+      - "4317:4317"
+      - "4318:4318"
 
   balena-monitor:
     build:
@@ -82,7 +70,7 @@ services:
       target: balena-monitor
     restart: always
     labels:
-      io.balena.features.supervisor-api: "1" # Allow access to Supervisor API
+      io.balena.features.supervisor-api: "1"
     depends_on:
       - otel-collector
 
