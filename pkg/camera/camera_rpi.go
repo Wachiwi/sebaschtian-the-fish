@@ -3,6 +3,7 @@
 package camera
 
 import (
+	"bytes"
 	"fmt"
 	"log/slog"
 	"os/exec"
@@ -47,7 +48,6 @@ func (c *Camera) startStreamingProcess() error {
 		"--timeout", "0", // Run indefinitely
 		"--nopreview",
 		"--codec", "mjpeg", // MJPEG output
-		"--inline",      // Inline headers (SPS/PPS) - critical for streaming
 		"--output", "-", // Output to stdout
 		"--framerate", fmt.Sprintf("%d", c.fps),
 		// Module 3 specific optimizations
@@ -60,8 +60,12 @@ func (c *Camera) startStreamingProcess() error {
 		return fmt.Errorf("failed to get stdout pipe: %w", err)
 	}
 
+	// Capture stderr for debugging
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("failed to start %s: %w", cmdName, err)
+		return fmt.Errorf("failed to start %s: %w, stderr: %s", cmdName, err, stderr.String())
 	}
 
 	streamingCmd = cmd
@@ -74,7 +78,11 @@ func (c *Camera) startStreamingProcess() error {
 	// Start a goroutine to monitor the process and clean up if it exits
 	go func() {
 		err := cmd.Wait()
-		slog.Warn("Camera streaming process exited", "error", err)
+		if err != nil {
+			slog.Warn("Camera streaming process exited", "error", err, "stderr", stderr.String())
+		} else {
+			slog.Info("Camera streaming process exited cleanly")
+		}
 		CmdMutex.Lock()
 		defer CmdMutex.Unlock()
 		streamingCmd = nil
