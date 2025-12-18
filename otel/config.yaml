@@ -26,7 +26,11 @@ processors:
 exporters:
   debug:
     verbosity: detailed
-  
+
+  googlecloud:
+    log:
+      default_log_name: sebaschtian-device-logs
+
   otlp/remote:
     endpoint: "${env:OTEL_REMOTE_ENDPOINT}"
     tls:
@@ -39,12 +43,12 @@ service:
     metrics:
       receivers: [hostmetrics, docker_stats, otlp]
       processors: [batch]
-      exporters: [debug, otlp/remote]
+      exporters: [debug, googlecloud, otlp/remote]
     traces:
       receivers: [otlp]
       processors: [batch]
-      exporters: [debug, otlp/remote]
+      exporters: [debug, googlecloud, otlp/remote]
     logs:
       receivers: [otlp]
       processors: [batch]
-      exporters: [debug, otlp/remote]
+      exporters: [debug, googlecloud, otlp/remote]

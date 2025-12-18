@@ -22,19 +22,38 @@ import (
 	"github.com/youpy/go-wav"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 )
+
+var (
+	motorOpsCounter metric.Int64Counter
+)
+
+func init() {
+	var err error
+	meter := otel.Meter("github.com/wachiwi/sebaschtian-the-fish/pkg/fish")
+	motorOpsCounter, err = meter.Int64Counter("fish.motor.operations",
+		metric.WithDescription("Total number of motor operations"),
+		metric.WithUnit("{ops}"),
+	)
+	if err != nil {
+		slog.Error("Failed to create motor metrics", "error", err)
+	}
+}
 
 // Motor represents a mock motor for macOS (no GPIO).
 type Motor struct{}
 
 // Forward is a no-op on macOS.
 func (m *Motor) Forward() error {
+	motorOpsCounter.Add(context.Background(), 1, metric.WithAttributes(attribute.String("direction", "forward")))
 	slog.Info("[MOCK] Motor forward")
 	return nil
 }
 
 // Reverse is a no-op on macOS.
 func (m *Motor) Reverse() error {
+	motorOpsCounter.Add(context.Background(), 1, metric.WithAttributes(attribute.String("direction", "reverse")))
 	slog.Info("[MOCK] Motor reverse")
 	return nil
 }

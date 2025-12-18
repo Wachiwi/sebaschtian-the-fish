@@ -62,13 +62,10 @@ services:
     privileged: true
     restart: always
     environment:
-      # Defaults for OTel remote endpoint.
-      # These can be overridden in the Balena Dashboard.
-      # We use explicit values instead of shell expansion ${VAR:-default}
-      # because Balena's compose engine might treat the expansion syntax literally.
       - OTEL_REMOTE_ENDPOINT=127.0.0.1:55666
       - OTEL_REMOTE_AUTH_HEADER=
       - OTEL_REMOTE_INSECURE=true
+      - GCP_KEY=${GCP_KEY}
     ports:
       - "4317:4317"
       - "4318:4318"

@@ -8,7 +8,25 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/wachiwi/sebaschtian-the-fish/pkg/playlist"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/metric"
 )
+
+var (
+	queueDepthGauge metric.Int64Gauge
+)
+
+func init() {
+	var err error
+	meter := otel.Meter("github.com/wachiwi/sebaschtian-the-fish/cmd/sounds")
+	queueDepthGauge, err = meter.Int64Gauge("sounds.queue.depth",
+		metric.WithDescription("Current number of items in the queue"),
+		metric.WithUnit("{items}"),
+	)
+	if err != nil {
+		slog.Error("Failed to create queue metrics", "error", err)
+	}
+}
 
 type QueueHandler struct {
 	TemplateFS embed.FS
@@ -55,6 +73,7 @@ func (h *QueueHandler) Play(c *gin.Context) {
 		c.String(http.StatusInternalServerError, "Failed to get queue")
 		return
 	}
+	queueDepthGauge.Record(c.Request.Context(), int64(len(queueItems)))
 
 	tmpl := template.Must(template.New("sounds.html").Funcs(template.FuncMap{
 		"add": func(a, b int) int { return a + b },

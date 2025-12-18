@@ -24,7 +24,24 @@ import (
 	"github.com/youpy/go-wav"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 )
+
+var (
+	motorOpsCounter metric.Int64Counter
+)
+
+func init() {
+	var err error
+	meter := otel.Meter("github.com/wachiwi/sebaschtian-the-fish/pkg/fish")
+	motorOpsCounter, err = meter.Int64Counter("fish.motor.operations",
+		metric.WithDescription("Total number of motor operations"),
+		metric.WithUnit("{ops}"),
+	)
+	if err != nil {
+		slog.Error("Failed to create motor metrics", "error", err)
+	}
+}
 
 // Motor represents a single DC motor controlled by an H-Bridge.
 type Motor struct {
@@ -35,6 +52,7 @@ type Motor struct {
 
 // Forward turns the motor in the forward direction.
 func (m *Motor) Forward() error {
+	motorOpsCounter.Add(context.Background(), 1, metric.WithAttributes(attribute.String("direction", "forward")))
 	if err := m.in1.SetValue(1); err != nil {
 		return err
 	}
@@ -46,6 +64,7 @@ func (m *Motor) Forward() error {
 
 // Reverse turns the motor in the reverse direction.
 func (m *Motor) Reverse() error {
+	motorOpsCounter.Add(context.Background(), 1, metric.WithAttributes(attribute.String("direction", "reverse")))
 	if err := m.in1.SetValue(0); err != nil {
 		return err
 	}

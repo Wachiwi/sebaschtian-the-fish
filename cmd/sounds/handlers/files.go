@@ -11,7 +11,25 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/wachiwi/sebaschtian-the-fish/pkg/playlist"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/metric"
 )
+
+var (
+	uploadsCounter metric.Int64Counter
+)
+
+func init() {
+	var err error
+	meter := otel.Meter("github.com/wachiwi/sebaschtian-the-fish/cmd/sounds")
+	uploadsCounter, err = meter.Int64Counter("sounds.uploads",
+		metric.WithDescription("Total number of files uploaded"),
+		metric.WithUnit("{files}"),
+	)
+	if err != nil {
+		slog.Error("Failed to create upload metrics", "error", err)
+	}
+}
 
 type SoundFile struct {
 	Name string
@@ -94,6 +112,7 @@ func (h *FileHandler) Upload(c *gin.Context) {
 		c.String(http.StatusInternalServerError, "Failed to save file")
 		return
 	}
+	uploadsCounter.Add(c.Request.Context(), 1)
 	soundFiles := GetSoundFiles()
 	tmpl := template.Must(template.ParseFS(h.TemplateFS, "templates/sounds.html"))
 	tmpl.ExecuteTemplate(c.Writer, "sound-list", gin.H{"soundFiles": soundFiles})

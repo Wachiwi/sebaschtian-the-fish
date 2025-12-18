@@ -14,7 +14,24 @@ import (
 	"github.com/wachiwi/sebaschtian-the-fish/pkg/playlist"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 )
+
+var (
+	actionCounter metric.Int64Counter
+)
+
+func init() {
+	var err error
+	meter := otel.Meter("github.com/wachiwi/sebaschtian-the-fish/cmd/fish")
+	actionCounter, err = meter.Int64Counter("fish.actions",
+		metric.WithDescription("Total number of actions performed by the fish"),
+		metric.WithUnit("{actions}"),
+	)
+	if err != nil {
+		slog.Error("Failed to create action metrics", "error", err)
+	}
+}
 
 type Phrase struct {
 	Text   string
@@ -237,6 +254,10 @@ func runFishCycle(myFish *fish.Fish, piperClient *piper.PiperClient, soundDir st
 
 	if queueItem != nil {
 		slog.Info("Playing queued item", "name", queueItem.Name, "type", queueItem.Type)
+		actionCounter.Add(ctx, 1, metric.WithAttributes(
+			attribute.String("type", queueItem.Type),
+			attribute.String("source", "queue"),
+		))
 		span.SetAttributes(
 			attribute.String("action.type", "queue"),
 			attribute.String("item.name", queueItem.Name),
@@ -263,6 +284,10 @@ func runFishCycle(myFish *fish.Fish, piperClient *piper.PiperClient, soundDir st
 		action := rand.Intn(2)
 		if action == 0 {
 			phraseToSay := getWeightedRandomPhrase()
+			actionCounter.Add(ctx, 1, metric.WithAttributes(
+				attribute.String("type", "text"),
+				attribute.String("source", "random"),
+			))
 			span.SetAttributes(
 				attribute.String("action.type", "random_phrase"),
 				attribute.String("phrase", phraseToSay),
@@ -276,6 +301,10 @@ func runFishCycle(myFish *fish.Fish, piperClient *piper.PiperClient, soundDir st
 				slog.Info("Would say", "text", phraseToSay)
 			}
 		} else {
+			actionCounter.Add(ctx, 1, metric.WithAttributes(
+				attribute.String("type", "song"),
+				attribute.String("source", "random"),
+			))
 			span.SetAttributes(attribute.String("action.type", "random_song"))
 			sing(ctx, myFish, soundDir)
 		}
