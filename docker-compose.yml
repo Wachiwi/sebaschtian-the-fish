@@ -37,6 +37,7 @@ services:
       - sound-data:/app/sound-data
     devices:
       - /dev/vchiq:/dev/vchiq
+      - /dev/dma_heap:/dev/dma_heap
       - /dev/video10:/dev/video10
       - /dev/video11:/dev/video11
       - /dev/video12:/dev/video12
