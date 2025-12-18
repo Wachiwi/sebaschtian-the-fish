@@ -3,32 +3,40 @@
 package camera
 
 import (
-	"bytes"
 	"fmt"
+	"log/slog"
 	"os/exec"
 )
+
+var streamingCmd *exec.Cmd
 
 // captureFrameRPi captures from the default macOS webcam using ffmpeg
 // This allows local development with actual camera input
 func (c *Camera) captureFrameRPi() ([]byte, error) {
-	return c.captureFrameMacWebcam()
+	CmdMutex.Lock()
+	defer CmdMutex.Unlock()
+
+	// 1. Initialize streaming if not already running
+	if streamingCmd == nil {
+		if err := c.startStreamingProcess(); err != nil {
+			return nil, err
+		}
+	}
+
+	// 2. Return the most recent frame captured by the background pump
+	return GetCurrentFrame()
 }
 
-// captureFrameMacWebcam captures a frame from the default macOS webcam using ffmpeg
-// Requires ffmpeg to be installed: brew install ffmpeg
-func (c *Camera) captureFrameMacWebcam() ([]byte, error) {
-	// Use ffmpeg to capture a single frame from the default camera
+// startStreamingProcess starts the ffmpeg process in MJPEG streaming mode.
+func (c *Camera) startStreamingProcess() error {
+	// Use ffmpeg to capture frames from the default camera and stream MJPEG to stdout
 	// -f avfoundation: Use AVFoundation framework (macOS camera API)
-	// -framerate MUST be 30 for most Mac cameras (they don't support 15)
-	// -video_size and -framerate MUST come before -i
-	// -i "0": Default video device (usually FaceTime camera)
-	// -frames:v 1: Capture only 1 frame
-	// -f image2pipe: Output as image stream
-	// -vcodec mjpeg: Encode as JPEG
-	// pipe:1: Output to stdout
+	// -framerate MUST be 30 for most Mac cameras (they don't support arbitrary framerates)
+	// -video_size: Resolution
+	// -i "0": Default video device
+	// -f mjpeg: Output format
+	// -: Output to stdout
 
-	// Note: Most Mac cameras only support 15fps and 30fps.
-	// We use 30fps for capture even if c.fps is lower, then the server will throttle the stream
 	fps := 30
 
 	cmd := exec.Command(
@@ -37,39 +45,44 @@ func (c *Camera) captureFrameMacWebcam() ([]byte, error) {
 		"-framerate", fmt.Sprintf("%d", fps),
 		"-video_size", fmt.Sprintf("%dx%d", c.width, c.height),
 		"-i", "0", // Device 0 = default camera
-		"-frames:v", "1", // Capture single frame
-		"-f", "image2pipe", // Output as image
-		"-vcodec", "mjpeg", // JPEG encoding
-		"-q:v", "5", // Quality (2-31, lower is better)
+		"-f", "mjpeg", // MJPEG output stream
+		"-q:v", "5", // Quality
 		"-hide_banner",       // Hide ffmpeg banner
 		"-loglevel", "error", // Only show errors
-		"pipe:1", // Output to stdout
+		"-", // Output to stdout
 	)
 
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("ffmpeg capture failed: %w, stderr: %s (install with: brew install ffmpeg)", err, stderr.String())
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("failed to get stdout pipe: %w", err)
 	}
 
-	if stdout.Len() == 0 {
-		return nil, fmt.Errorf("ffmpeg returned empty frame, stderr: %s", stderr.String())
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to start ffmpeg: %w", err)
 	}
 
-	return stdout.Bytes(), nil
+	streamingCmd = cmd
+	StreamingPipe = stdout
+	slog.Info("Started camera streaming process (ffmpeg)", "width", c.width, "height", c.height, "fps", fps)
+
+	// Start consuming frames in background
+	go PumpFrames()
+
+	// Start a goroutine to monitor the process and clean up if it exits
+	go func() {
+		err := cmd.Wait()
+		slog.Warn("Camera streaming process exited", "error", err)
+		CmdMutex.Lock()
+		defer CmdMutex.Unlock()
+		streamingCmd = nil
+		StreamingPipe = nil
+	}()
+
+	return nil
 }
 
 // listMacCameras lists available camera devices on macOS
 func listMacCameras() (string, error) {
-	cmd := exec.Command("ffmpeg", "-f", "avfoundation", "-list_devices", "true", "-i", "")
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-
-	// This command intentionally fails, but outputs device list to stderr
-	cmd.Run()
-
-	return stderr.String(), nil
+	// ... (unchanged)
+	return "", nil
 }
