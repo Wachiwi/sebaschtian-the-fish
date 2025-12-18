@@ -1,6 +1,5 @@
 FROM otel/opentelemetry-collector-contrib:0.96.0
 
-USER root
 COPY config.yaml /etc/otelcol-contrib/config.yaml
 COPY entrypoint.sh /entrypoint.sh
 
