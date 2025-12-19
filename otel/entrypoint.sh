@@ -6,5 +6,4 @@ if [ -n "$GCP_KEY" ]; then
     export GOOGLE_APPLICATION_CREDENTIALS=/etc/otel/gcp-key.json
 fi
 
-# Run the collector
 exec /otelcol-contrib "$@"
