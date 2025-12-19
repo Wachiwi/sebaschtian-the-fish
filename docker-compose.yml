@@ -33,11 +33,14 @@ services:
     privileged: true
     environment:
       SOUNDS_PORT: 80
+      UDEV: "1"
     volumes:
       - sound-data:/app/sound-data
+      - /dev/dma_heap:/dev/dma_heap
     devices:
       - /dev/vchiq:/dev/vchiq
-      - /dev/dma_heap:/dev/dma_heap
+      - /dev/vcsm-cma:/dev/vcsm-cma
+      - /dev/vc-mem:/dev/vc-mem
       - /dev/video10:/dev/video10
       - /dev/video11:/dev/video11
       - /dev/video12:/dev/video12
